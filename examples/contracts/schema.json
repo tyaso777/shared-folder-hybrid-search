@@ -1,0 +1,24 @@
+{
+  "dataset_id": "contracts",
+  "primary_key": "contract_id",
+  "text_fields": ["title", "body", "notes"],
+  "display_fields": ["title", "department", "updated_at", "source_uri"],
+  "filter_fields": {
+    "department": {
+      "type": "keyword",
+      "label": "部署",
+      "ui": "select"
+    },
+    "category": {
+      "type": "keyword",
+      "label": "カテゴリ",
+      "ui": "select"
+    },
+    "updated_at": {
+      "type": "date",
+      "label": "更新日",
+      "ui": "date_range"
+    }
+  }
+}
+

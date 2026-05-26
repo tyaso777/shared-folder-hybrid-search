@@ -1,0 +1,15 @@
+[package]
+name = "convert-mediawiki-dump"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+bzip2.workspace = true
+chrono.workspace = true
+clap.workspace = true
+quick-xml.workspace = true
+regex.workspace = true
+serde_json.workspace = true

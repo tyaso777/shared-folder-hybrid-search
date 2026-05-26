@@ -1,0 +1,530 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Shared Search</title>
+  <style>
+    :root { color-scheme: light; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: system-ui, "Yu Gothic", "Meiryo", sans-serif; background: #f7f7f5; color: #222; }
+    main { max-width: 980px; margin: 0 auto; padding: 38px 22px 54px; }
+    .search-row { display: grid; grid-template-columns: 1fr 112px; gap: 12px; }
+    .search-input { width: 100%; height: 48px; padding: 0 16px; border: 1px solid #d7d7d2; border-radius: 8px; background: white; font: inherit; font-size: 18px; }
+    button, select { font: inherit; }
+    button { height: 44px; padding: 0 18px; border: 1px solid #c8c8c3; border-radius: 8px; background: white; color: #222; cursor: pointer; }
+    button:hover { border-color: #8a8a84; }
+    button:disabled { color: #777; background: #ececea; cursor: wait; }
+    .search-button { height: 48px; font-weight: 700; }
+    .controls { display: grid; gap: 10px; margin-top: 16px; }
+    .control-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .control-label { min-width: 84px; color: #444; }
+    .chip { height: 36px; padding: 0 14px; border-radius: 999px; background: white; color: #454541; }
+    .chip.active { border-color: #2680eb; background: #eff6ff; color: #0b63c7; font-weight: 700; }
+    .method-chip { height: 36px; padding: 0 14px; border-radius: 999px; font-weight: 700; }
+    .method-chip.bm25 { background: #eef8e7; border-color: #77b84c; color: #3f7f22; }
+    .method-chip.vector { background: #f0edff; border-color: #8d80e8; color: #46389b; }
+    .method-chip.rrf { background: #fff4e5; border-color: #e6a14a; color: #9a5d00; }
+    .method-chip.off { opacity: 0.45; background: white; color: #777; border-color: #d7d7d2; }
+    .rank-badge { position: relative; display: inline-flex; align-items: center; height: 36px; padding: 0 14px; border: 1px solid #e6a14a; border-radius: 999px; background: #fff4e5; color: #9a5d00; font-weight: 700; }
+    .rank-badge[aria-disabled="true"] { opacity: 0.45; background: white; color: #777; border-color: #d7d7d2; }
+    .tooltip { position: absolute; left: 0; bottom: calc(100% + 8px); width: 280px; padding: 10px 12px; border: 1px solid #c8c8c3; border-radius: 8px; background: white; color: #333; font-size: 14px; font-weight: 400; line-height: 1.45; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12); opacity: 0; pointer-events: none; transform: translateY(4px); transition: opacity 120ms ease, transform 120ms ease; z-index: 3; }
+    .rank-badge:hover .tooltip, .rank-badge:focus .tooltip { opacity: 1; transform: translateY(0); }
+    .divider { color: #aaa; }
+    .method-warning { color: #b45309; font-size: 13px; font-weight: 700; }
+    .unit-chip { height: 36px; padding: 0 14px; border-radius: 999px; font-weight: 700; }
+    .unit-chip.active { border-color: #2680eb; background: #eff6ff; color: #0b63c7; }
+    .unit-chip:not(.active) { color: #555; background: white; }
+    .secondary { color: #444; background: white; }
+    .status-row { display: grid; grid-template-columns: 230px 1fr; gap: 18px; align-items: center; margin-top: 26px; }
+    .status { color: #444; font-weight: 700; line-height: 1.45; }
+    .sort-select { width: 100%; height: 48px; padding: 0 14px; border: 1px solid #d7d7d2; border-radius: 8px; background: white; font-size: 16px; }
+    .filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; margin-top: 14px; }
+    .filter { display: grid; gap: 6px; }
+    .filter label { font-size: 12px; font-weight: 700; color: #555; }
+    .filter input, .filter select { width: 100%; height: 38px; padding: 0 10px; border: 1px solid #d7d7d2; border-radius: 7px; background: white; }
+    .results { display: grid; gap: 16px; margin-top: 18px; }
+    .result { background: white; border: 1px solid #dcdcd7; border-radius: 10px; padding: 24px 26px 20px; }
+    .result-head { display: grid; grid-template-columns: 1fr auto; gap: 18px; align-items: start; }
+    .title { font-size: 18px; font-weight: 800; line-height: 1.35; }
+    .badges { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+    .badge { display: inline-flex; align-items: center; height: 28px; padding: 0 12px; border-radius: 999px; font-size: 13px; font-weight: 700; background: #eef2f7; color: #475569; white-space: nowrap; }
+    .badge.high { background: #e7f5dd; color: #397b22; }
+    .badge.medium { background: #f2f2ed; color: #5f5f57; }
+    .badge.low { background: #f1f3f4; color: #8a8a84; }
+    .badge.source { background: #e8f3ff; color: #1268b3; }
+    .url { margin-top: 10px; color: #40443f; font-size: 14px; overflow-wrap: anywhere; }
+    .snippet { margin-top: 14px; line-height: 1.7; color: #333; }
+    mark { background: #fde9a8; color: inherit; padding: 0 2px; border-radius: 3px; }
+    .actions { display: flex; justify-content: space-between; gap: 14px; margin-top: 20px; padding-top: 16px; border-top: 1px solid #e4e4df; }
+    .action-left, .action-right { display: flex; gap: 10px; flex-wrap: wrap; }
+    .action { height: 38px; padding: 0 16px; font-weight: 700; }
+    .panel { margin-top: 14px; padding: 14px; border: 1px solid #e2e2dc; border-radius: 8px; background: #fafafa; line-height: 1.7; max-height: 340px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .chunk-panel { border-left: 3px solid #2563eb; }
+    .debug { margin-top: 10px; color: #64748b; font-size: 12px; }
+    .empty { padding: 26px; border: 1px dashed #c9c9c3; border-radius: 10px; color: #666; background: #fff; }
+    @media (max-width: 760px) {
+      main { padding: 22px 14px 40px; }
+      .search-row, .status-row { grid-template-columns: 1fr; }
+      .control-label { min-width: auto; width: 100%; }
+      .result-head { grid-template-columns: 1fr; }
+      .badges { justify-content: flex-start; }
+      .actions { display: grid; }
+      .search-input { font-size: 16px; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="search-row">
+      <input id="query" class="search-input" placeholder="検索キーワード">
+      <button id="search" class="search-button">検索</button>
+    </div>
+    <div class="controls">
+      <div id="sourceChips" class="control-row"></div>
+      <div class="control-row">
+        <span class="control-label">検索方法:</span>
+        <button id="bm25Chip" class="method-chip bm25" data-mode="bm25">● BM25</button>
+        <button id="vectorChip" class="method-chip vector" data-mode="vector">● Vector</button>
+        <span class="divider">|</span>
+        <span class="control-label" style="min-width:auto;">ランキング:</span>
+        <span id="rrfChip" class="rank-badge" tabindex="0">
+          ⌘ RRF
+          <span class="tooltip">Reciprocal Rank Fusion<br>BM25・Vector の順位を統合してスコアリング</span>
+        </span>
+        <span id="methodWarning" class="method-warning" hidden>少なくとも一方はOnにしてください</span>
+        <button id="resetFilters" class="secondary">フィルター解除</button>
+      </div>
+      <div class="control-row">
+        <span class="control-label">表示単位:</span>
+        <button id="documentUnitChip" class="unit-chip active">文書</button>
+        <button id="chunkUnitChip" class="unit-chip">チャンク</button>
+        <span id="granularityNotice" class="method-warning" hidden>VectorをONにしました。チャンク単位表示にはVector検索を使います。</span>
+      </div>
+    </div>
+    <div id="filters" class="filters"></div>
+    <div class="status-row">
+      <div id="status" class="status">準備中</div>
+      <select id="sortOrder" class="sort-select">
+        <option value="relevance">関連度順</option>
+      </select>
+    </div>
+    <div id="results" class="results"></div>
+  </main>
+  <script>
+    const state = { schema: null, facets: {}, activeSource: '', bm25On: true, vectorOn: true, resultGranularity: 'document' };
+    setInterval(() => fetch('/api/heartbeat', { method: 'POST' }), 5000);
+
+    async function loadDataset() {
+      const res = await fetch('/api/dataset');
+      const json = await res.json();
+      if (json.status === 'ok' && json.kind === 'dataset') {
+        state.schema = json.schema;
+        state.facets = json.facets || {};
+        renderSourceChips();
+        renderFilters();
+        document.getElementById('status').textContent = `${json.dataset_id} / ${json.index_version}`;
+      } else {
+        document.getElementById('status').textContent = json.message || 'dataset取得に失敗しました';
+      }
+    }
+
+    function sourceField() {
+      return state.schema?.source_label_field || 'source';
+    }
+
+    function sourceUriField() {
+      return state.schema?.source_uri_field || 'url';
+    }
+
+    function renderSourceChips() {
+      const root = document.getElementById('sourceChips');
+      root.innerHTML = '';
+      const label = document.createElement('span');
+      label.className = 'control-label';
+      label.textContent = 'ソース:';
+      root.appendChild(label);
+      const field = sourceField();
+      const values = (state.facets[field] || []).map(item => String(item.value)).filter(Boolean);
+      const chips = ['', ...values];
+      for (const value of chips) {
+        const button = document.createElement('button');
+        button.className = `chip${state.activeSource === value ? ' active' : ''}`;
+        button.textContent = value || 'すべて';
+        button.addEventListener('click', () => {
+          state.activeSource = value;
+          renderSourceChips();
+        });
+        root.appendChild(button);
+      }
+    }
+
+    function renderFilters() {
+      const root = document.getElementById('filters');
+      root.innerHTML = '';
+      const fields = state.schema?.filter_fields || {};
+      for (const [name, spec] of Object.entries(fields)) {
+        if (name === sourceField()) continue;
+        const box = document.createElement('div');
+        box.className = 'filter';
+        const label = document.createElement('label');
+        label.textContent = spec.label || name;
+        box.appendChild(label);
+        if (spec.ui === 'date_range' || spec.ui === 'number_range') {
+          const a = document.createElement('input');
+          const b = document.createElement('input');
+          a.dataset.filter = name; a.dataset.op = 'gte';
+          b.dataset.filter = name; b.dataset.op = 'lte';
+          a.type = spec.ui === 'date_range' ? 'date' : 'number';
+          b.type = a.type;
+          box.appendChild(a); box.appendChild(b);
+        } else {
+          const select = document.createElement('select');
+          select.dataset.filter = name;
+          select.innerHTML = '<option value="">指定なし</option>';
+          for (const item of state.facets[name] || []) {
+            const option = document.createElement('option');
+            option.value = String(item.value);
+            option.textContent = `${item.value} (${item.count})`;
+            select.appendChild(option);
+          }
+          box.appendChild(select);
+        }
+        root.appendChild(box);
+      }
+    }
+
+    function collectFilters() {
+      const filters = {};
+      if (state.activeSource) filters[sourceField()] = { eq: state.activeSource };
+      for (const el of document.querySelectorAll('[data-filter]')) {
+        const field = el.dataset.filter;
+        if (!el.value) continue;
+        if (el.dataset.op) {
+          filters[field] = filters[field] || {};
+          filters[field][el.dataset.op] = el.type === 'number' ? Number(el.value) : el.value;
+        } else {
+          filters[field] = { eq: el.value };
+        }
+      }
+      return filters;
+    }
+
+    async function search() {
+      const button = document.getElementById('search');
+      const query = document.getElementById('query').value;
+      button.disabled = true;
+      const startedAt = performance.now();
+      document.getElementById('status').textContent = '検索中';
+      document.getElementById('results').innerHTML = '';
+      const submitted = await fetch('/api/search', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          query,
+          top_k: 20,
+          filters: collectFilters(),
+          search_mode: currentSearchMode(),
+          result_granularity: state.resultGranularity
+        })
+      }).then(r => r.json());
+      const requestId = submitted.request_id;
+      for (;;) {
+        const job = await fetch(`/api/jobs/${requestId}`).then(r => r.json());
+        if (job.status === 'pending') {
+          await new Promise(resolve => setTimeout(resolve, 300));
+          continue;
+        }
+        button.disabled = false;
+        if (job.status === 'error') {
+          document.getElementById('status').textContent = job.message;
+        } else {
+          const terms = job.query_terms && job.query_terms.length ? job.query_terms : fallbackQueryTerms(query);
+          const elapsed = Math.round(performance.now() - startedAt);
+          renderResults(job.results || [], terms);
+          document.getElementById('status').textContent = `${job.results.length}件の結果 - ${query || 'すべて'} / ${elapsed}ms`;
+        }
+        break;
+      }
+    }
+
+    function renderResults(results, queryTerms) {
+      const root = document.getElementById('results');
+      root.innerHTML = '';
+      if (!results.length) {
+        const empty = document.createElement('div');
+        empty.className = 'empty';
+        empty.textContent = '該当する結果はありません';
+        root.appendChild(empty);
+        return;
+      }
+      results.forEach((result, index) => root.appendChild(renderResult(result, index, queryTerms)));
+    }
+
+    function renderResult(result, index, queryTerms) {
+      const display = result.display || {};
+      const payload = result.payload || {};
+      const title = display.title || payload.title || payload.name || result.record_id;
+      const source = valueFrom(payload, display, sourceField()) || 'Source';
+      const url = valueFrom(payload, display, sourceUriField()) || valueFrom(payload, display, 'source_uri') || valueFrom(payload, display, 'uri') || '';
+      const fullText = result.matched_chunk?.text || '';
+      const relevance = relevanceLabel(index);
+      const card = document.createElement('article');
+      card.className = 'result';
+      card.innerHTML = `
+        <div class="result-head">
+          <div>
+            <div class="title"></div>
+            <div class="url"></div>
+          </div>
+          <div class="badges">
+            <span class="badge relevance"></span>
+            <span class="badge source"></span>
+          </div>
+        </div>
+        <div class="snippet"></div>
+        <div class="chunk-text panel chunk-panel" hidden></div>
+        <div class="actions">
+          <div class="action-left">
+            <button class="action copy-url">URLをコピー</button>
+            <button class="action open-url">原文を開く</button>
+            <button class="action toggle-full">表示を拡げる</button>
+          </div>
+          <div class="action-right">
+            <button class="action toggle-chunk">チャンク詳細</button>
+          </div>
+        </div>
+        <div class="debug"></div>
+      `;
+      card.querySelector('.title').textContent = title;
+      card.querySelector('.url').textContent = url || result.record_id;
+      const relevanceBadge = card.querySelector('.relevance');
+      relevanceBadge.textContent = relevance.text;
+      relevanceBadge.classList.add(relevance.className);
+      card.querySelector('.source').textContent = source;
+      renderHighlighted(card.querySelector('.snippet'), result.snippet || '', queryTerms);
+      const chunkPanel = card.querySelector('.chunk-text');
+      const snippet = card.querySelector('.snippet');
+      const fullButton = card.querySelector('.toggle-full');
+      const chunkButton = card.querySelector('.toggle-chunk');
+      if (!shouldShowFullToggle(result.snippet || '', fullText)) fullButton.hidden = true;
+      if (!result.matched_chunk?.text) {
+        fullButton.hidden = true;
+        chunkButton.hidden = true;
+      }
+      fullButton.addEventListener('click', () => toggleInlineText(snippet, fullButton, result.snippet || '', fullText, queryTerms));
+      chunkButton.addEventListener('click', () => {
+        const detail = [
+          `chunk_id: ${result.matched_chunk.chunk_id}`,
+          `chunk_index: ${result.matched_chunk.chunk_index}`,
+          `vector_score: ${formatScore(result.matched_chunk.score)}`,
+          scoreDetails(result.scores || {})
+        ].join('\n');
+        togglePanel(chunkPanel, chunkButton, 'チャンク詳細', 'チャンクを閉じる', detail, []);
+      });
+      card.querySelector('.copy-url').addEventListener('click', async event => {
+        if (!url) return;
+        await navigator.clipboard.writeText(url);
+        event.currentTarget.textContent = 'コピー済み';
+        setTimeout(() => { event.currentTarget.textContent = 'URLをコピー'; }, 1200);
+      });
+      card.querySelector('.open-url').addEventListener('click', () => { if (url) window.open(url, '_blank', 'noopener'); });
+      if (!url) {
+        card.querySelector('.copy-url').disabled = true;
+        card.querySelector('.open-url').disabled = true;
+      }
+      card.querySelector('.debug').textContent = scoreDetails(result.scores || {}, result);
+      return card;
+    }
+
+    function togglePanel(panel, button, closedLabel, openLabel, text, queryTerms) {
+      if (panel.hidden) {
+        panel.hidden = false;
+        button.textContent = openLabel;
+        renderHighlighted(panel, text || '', queryTerms);
+      } else {
+        panel.hidden = true;
+        button.textContent = closedLabel;
+      }
+    }
+
+    function toggleInlineText(target, button, collapsedText, expandedText, queryTerms) {
+      const expanded = button.dataset.expanded === 'true';
+      if (expanded) {
+        button.dataset.expanded = 'false';
+        button.textContent = '表示を拡げる';
+        renderHighlighted(target, collapsedText || '', queryTerms);
+      } else {
+        button.dataset.expanded = 'true';
+        button.textContent = '短く表示';
+        renderHighlighted(target, expandedText || '', queryTerms);
+      }
+    }
+
+    function shouldShowFullToggle(collapsedText, expandedText) {
+      const collapsed = normalizeText(collapsedText);
+      const expanded = normalizeText(expandedText);
+      if (!expanded) return false;
+      if (collapsed === expanded) return false;
+      return expanded.length > collapsed.length + 40;
+    }
+
+    function normalizeText(text) {
+      return String(text || '').replace(/\s+/g, ' ').trim();
+    }
+
+    function valueFrom(payload, display, field) {
+      if (!field) return '';
+      const value = payload[field] ?? display[field];
+      return value === undefined || value === null ? '' : String(value);
+    }
+
+    function relevanceLabel(index) {
+      if (index < 3) return { text: '高関連', className: 'high' };
+      if (index < 10) return { text: '中関連', className: 'medium' };
+      return { text: '低関連', className: 'low' };
+    }
+
+    function resetFilters() {
+      state.activeSource = '';
+      renderSourceChips();
+      for (const el of document.querySelectorAll('[data-filter]')) el.value = '';
+    }
+
+    function toggleSearchMethod(method) {
+      const nextBm25 = method === 'bm25' ? !state.bm25On : state.bm25On;
+      const nextVector = method === 'vector' ? !state.vectorOn : state.vectorOn;
+      if (!nextBm25 && !nextVector) {
+        showMethodWarning();
+        return;
+      }
+      if (method === 'vector' && !nextVector && state.resultGranularity === 'chunk') {
+        showGranularityNotice('チャンク表示ではVectorが必要です');
+        return;
+      }
+      state.bm25On = nextBm25;
+      state.vectorOn = nextVector;
+      renderMethodChips();
+    }
+
+    function currentSearchMode() {
+      if (state.bm25On && state.vectorOn) return 'hybrid';
+      if (state.bm25On) return 'bm25';
+      return 'vector';
+    }
+
+    function renderMethodChips() {
+      document.getElementById('bm25Chip').classList.toggle('off', !state.bm25On);
+      document.getElementById('vectorChip').classList.toggle('off', !state.vectorOn);
+      document.getElementById('rrfChip').setAttribute('aria-disabled', currentSearchMode() !== 'hybrid' ? 'true' : 'false');
+    }
+
+    function showMethodWarning() {
+      const warning = document.getElementById('methodWarning');
+      warning.hidden = false;
+      clearTimeout(showMethodWarning.timer);
+      showMethodWarning.timer = setTimeout(() => { warning.hidden = true; }, 1800);
+    }
+
+    function setResultGranularity(granularity) {
+      state.resultGranularity = granularity;
+      if (granularity === 'chunk' && !state.vectorOn) {
+        state.vectorOn = true;
+        showGranularityNotice('VectorをONにしました。チャンク単位表示にはVector検索を使います。');
+      }
+      renderMethodChips();
+      renderGranularityChips();
+    }
+
+    function renderGranularityChips() {
+      document.getElementById('documentUnitChip').classList.toggle('active', state.resultGranularity === 'document');
+      document.getElementById('chunkUnitChip').classList.toggle('active', state.resultGranularity === 'chunk');
+    }
+
+    function showGranularityNotice(message) {
+      const notice = document.getElementById('granularityNotice');
+      notice.textContent = message;
+      notice.hidden = false;
+      clearTimeout(showGranularityNotice.timer);
+      showGranularityNotice.timer = setTimeout(() => { notice.hidden = true; }, 2200);
+    }
+
+    function scoreDetails(scores, result) {
+      const parts = [`final ${formatScore(scores.final_score)}`];
+      if (state.resultGranularity === 'chunk' && result?.matched_chunk) parts.push(`chunk #${result.matched_chunk.chunk_index}`);
+      if (scores.bm25_rank) parts.push(`BM25 #${scores.bm25_rank}`);
+      if (scores.vector_rank) parts.push(`Vector #${scores.vector_rank}`);
+      if (scores.vector_score !== undefined && scores.vector_score !== null) parts.push(`Vector score ${formatScore(scores.vector_score)}`);
+      return parts.join(' / ');
+    }
+
+    function formatScore(value) {
+      if (value === undefined || value === null || Number.isNaN(Number(value))) return '-';
+      return Number(value).toFixed(4);
+    }
+
+    function fallbackQueryTerms(query) {
+      const terms = [query.trim(), ...query.split(/[\s,.;:!?、。！？；：]+/u)]
+        .map(term => term.trim())
+        .filter(term => term.length >= 2);
+      return uniqueTerms(terms);
+    }
+
+    function uniqueTerms(terms) {
+      const seen = new Set();
+      return terms
+        .filter(term => {
+          const key = term.toLocaleLowerCase();
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        })
+        .sort((a, b) => b.length - a.length)
+        .slice(0, 32);
+    }
+
+    function renderHighlighted(root, text, terms) {
+      root.textContent = '';
+      const normalizedTerms = uniqueTerms(terms || []);
+      if (!text || normalizedTerms.length === 0) {
+        root.textContent = text || '';
+        return;
+      }
+      const lowerText = text.toLocaleLowerCase();
+      const lowerTerms = normalizedTerms.map(term => ({ raw: term, lower: term.toLocaleLowerCase() }));
+      let position = 0;
+      while (position < text.length) {
+        let match = null;
+        for (const term of lowerTerms) {
+          const found = lowerText.indexOf(term.lower, position);
+          if (found === -1) continue;
+          if (!match || found < match.index || (found === match.index && term.lower.length > match.term.lower.length)) {
+            match = { index: found, term };
+          }
+        }
+        if (!match) {
+          root.appendChild(document.createTextNode(text.slice(position)));
+          break;
+        }
+        if (match.index > position) root.appendChild(document.createTextNode(text.slice(position, match.index)));
+        const end = match.index + match.term.raw.length;
+        const mark = document.createElement('mark');
+        mark.textContent = text.slice(match.index, end);
+        root.appendChild(mark);
+        position = end;
+      }
+    }
+
+    document.getElementById('search').addEventListener('click', search);
+    document.getElementById('resetFilters').addEventListener('click', resetFilters);
+    document.getElementById('bm25Chip').addEventListener('click', () => toggleSearchMethod('bm25'));
+    document.getElementById('vectorChip').addEventListener('click', () => toggleSearchMethod('vector'));
+    document.getElementById('documentUnitChip').addEventListener('click', () => setResultGranularity('document'));
+    document.getElementById('chunkUnitChip').addEventListener('click', () => setResultGranularity('chunk'));
+    document.getElementById('query').addEventListener('keydown', event => { if (event.key === 'Enter') search(); });
+    renderMethodChips();
+    renderGranularityChips();
+    loadDataset();
+  </script>
+</body>
+</html>

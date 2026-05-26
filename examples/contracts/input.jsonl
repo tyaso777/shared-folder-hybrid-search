@@ -1,0 +1,4 @@
+{"contract_id":"c-001","title":"契約更新チェックリスト","body":"契約更新時には自動更新条項、解約通知期限、価格改定条件、責任制限を確認する。","notes":"法務レビュー対象。","department":"法務","category":"契約","updated_at":"2026-05-01","source_uri":"\\\\share\\docs\\contract-renewal.pdf"}
+{"contract_id":"c-002","title":"秘密保持契約の確認事項","body":"NDAでは秘密情報の定義、例外、残存義務、損害賠償の範囲を確認する。","notes":"営業部からの相談が多い。","department":"法務","category":"NDA","updated_at":"2026-04-20","source_uri":"\\\\share\\docs\\nda-guide.pdf"}
+{"contract_id":"c-003","title":"稟議申請の添付資料","body":"高額契約の稟議には見積書、比較表、契約書ドラフト、リスク評価を添付する。","notes":"金額基準に注意。","department":"経理","category":"稟議","updated_at":"2026-03-15","source_uri":"\\\\share\\docs\\approval-flow.pdf"}
+
