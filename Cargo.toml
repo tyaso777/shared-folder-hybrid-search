@@ -12,7 +12,7 @@ resolver = "2"
 version = "0.1.0"
 edition = "2021"
 license = "MIT"
-repository = "https://github.com/your-org/shared-folder-hybrid-search"
+repository = "https://github.com/tyaso777/shared-folder-hybrid-search"
 
 [workspace.dependencies]
 anyhow = "1"

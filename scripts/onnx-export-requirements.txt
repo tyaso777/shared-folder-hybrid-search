@@ -1,0 +1,4 @@
+optimum[onnxruntime]
+transformers
+torch
+sentencepiece

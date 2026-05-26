@@ -16,6 +16,7 @@ function Resolve-RepoPath([string]$Path) {
 
 $output = Resolve-RepoPath $OutputDir
 $venv = Resolve-RepoPath ".venv-onnx"
+$requirements = Resolve-RepoPath "scripts\onnx-export-requirements.txt"
 $python = Join-Path $venv "Scripts\python.exe"
 $optimum = Join-Path $venv "Scripts\optimum-cli.exe"
 
@@ -35,11 +36,7 @@ if (-not (Test-Path $python)) {
     uv venv $venv --python $PythonVersion
 }
 
-uv pip install --python $python `
-    "optimum[onnxruntime]" `
-    "transformers" `
-    "torch" `
-    "sentencepiece"
+uv pip install --python $python -r $requirements
 
 & $optimum export onnx `
     --model $ModelId `

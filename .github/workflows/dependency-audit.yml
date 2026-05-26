@@ -1,0 +1,53 @@
+name: Dependency Audit
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+  schedule:
+    - cron: "0 0 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  rust:
+    name: Rust licenses and advisories
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          command: check advisories licenses bans sources
+
+  python:
+    name: Python export-tool licenses and vulnerabilities
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+      - name: Install audit tools
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pip-audit pip-licenses
+      - name: Check Python vulnerabilities
+        run: pip-audit -r scripts/onnx-export-requirements.txt
+      - name: Install Python export dependencies for license scan
+        run: |
+          python -m venv .venv-license
+          .venv-license/bin/python -m pip install --upgrade pip
+          .venv-license/bin/python -m pip install pip-licenses
+          .venv-license/bin/python -m pip install -r scripts/onnx-export-requirements.txt
+      - name: Check Python licenses
+        run: |
+          .venv-license/bin/python -m piplicenses \
+            --format=markdown \
+            --with-authors \
+            --with-urls \
+            --fail-on="GPL;AGPL;LGPL;SSPL"

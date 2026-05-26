@@ -43,6 +43,16 @@ User PC
 cargo build
 ```
 
+## Dependency Checks
+
+GitHub Actions runs dependency checks on `main`, pull requests, manual dispatch, and every Monday.
+
+- Rust vulnerabilities and licenses: `cargo-deny` with `deny.toml`.
+- Python vulnerabilities: `pip-audit` against `scripts/onnx-export-requirements.txt`.
+- Python licenses: `pip-licenses` against the ONNX export helper dependencies.
+
+The Python dependency set is only for `scripts/export_ruri_v3_onnx.ps1`; the Rust search server/client do not require Python at runtime.
+
 ## Use Your Own JSON
 
 For a real project, the server operator usually starts from two files:
