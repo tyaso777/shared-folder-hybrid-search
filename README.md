@@ -43,6 +43,117 @@ User PC
 cargo build
 ```
 
+## Use Your Own JSON
+
+For a real project, the server operator usually starts from two files:
+
+- `schema.json`: tells the indexer which JSON fields are IDs, searchable text, display fields, source links, and filters.
+- `input.jsonl`: one flat JSON object per line. Nested objects and arrays are rejected.
+
+Example project layout:
+
+```text
+data/my_project/schema.json
+data/my_project/input.jsonl
+```
+
+Example `input.jsonl`:
+
+```jsonl
+{"doc_id":"doc-001","title":"教育助言","body":"義務教育に関するリスクと対応方針。","source":"internal","source_uri":"https://example.local/doc-001","department":"教育","updated_at":"2026-05-01"}
+{"doc_id":"doc-002","title":"契約確認","body":"契約更新時の確認事項とリスク評価。","source":"internal","source_uri":"https://example.local/doc-002","department":"法務","updated_at":"2026-05-10"}
+```
+
+Example `schema.json`:
+
+```json
+{
+  "dataset_id": "my_project",
+  "primary_key": "doc_id",
+  "text_fields": ["title", "body"],
+  "full_text_fields": ["title", "body"],
+  "source_uri_field": "source_uri",
+  "source_label_field": "source",
+  "display_fields": ["title", "department", "updated_at", "source_uri"],
+  "filter_fields": {
+    "source": {
+      "type": "keyword",
+      "label": "Source",
+      "ui": "select"
+    },
+    "department": {
+      "type": "keyword",
+      "label": "Department",
+      "ui": "select"
+    },
+    "updated_at": {
+      "type": "date",
+      "label": "Updated At",
+      "ui": "date_range"
+    }
+  }
+}
+```
+
+Field meanings:
+
+| Field | Meaning |
+| --- | --- |
+| `dataset_id` | Dataset name used by `build-index`, `search-server`, and `search-client`. |
+| `primary_key` | Unique record ID field. Duplicate values fail the build. |
+| `text_fields` | Fields joined into the searchable document text for BM25 and vector chunking. |
+| `full_text_fields` | Dataset metadata for fields that represent the original text. The UI currently expands only the matched chunk, not the whole parent document. |
+| `source_uri_field` | Field used by the UI's open/copy source actions. |
+| `source_label_field` | Field used for source chips and source filters, such as `Wikibooks`, `Wikipedia`, or an internal system name. |
+| `display_fields` | Fields copied into each result payload for result card display. |
+| `filter_fields` | Fields exposed as UI filters and enforced by the search server. |
+
+Build a BM25-only index:
+
+```powershell
+cargo run -p build-index -- `
+  --dataset my_project `
+  --schema data\my_project\schema.json `
+  --input data\my_project\input.jsonl `
+  --indexes-root indexes
+```
+
+Build a hybrid BM25 + vector index:
+
+```powershell
+cargo run -p build-index -- `
+  --dataset my_project `
+  --schema data\my_project\schema.json `
+  --input data\my_project\input.jsonl `
+  --indexes-root indexes `
+  --embedding-model models\ruri-v3-onnx\model.onnx `
+  --tokenizer models\ruri-v3-onnx\tokenizer.json `
+  --ort-dll models\ruri-v3-onnx\onnxruntime.dll `
+  --embedding-dim 768 `
+  --max-input-tokens 512 `
+  --chunk-mode smart `
+  --chunk-size 1200 `
+  --chunk-overlap 200
+```
+
+Start the shared-folder server:
+
+```powershell
+cargo run -p search-server -- `
+  --shared-root shared_demo `
+  --indexes-root indexes
+```
+
+Start the browser client in another terminal:
+
+```powershell
+cargo run -p search-client -- `
+  --shared-root shared_demo `
+  --dataset my_project
+```
+
+For company deployment, `--shared-root` can be a shared folder path accessible to both the server process and client PCs. Each client writes requests with its own `client_id`, so concurrent users do not mix responses.
+
 ## Demo: BM25 Only
 
 Build a sample index:
