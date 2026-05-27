@@ -10,7 +10,9 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::chunking::{build_chunks, ChunkOptions, PreparedChunk};
-use crate::embedding::{resolve_config_paths, EmbeddingConfig, OnnxEmbedder};
+use crate::embedding::{
+    resolve_config_paths, EmbeddingConfig, EmbeddingConfigOverride, OnnxEmbedder,
+};
 use crate::protocol::{
     DatasetDescription, FacetValue, FilterExpr, MatchedChunk, ResultGranularity, ScoreBreakdown,
     SearchMode, SearchRequest, SearchResponse, SearchResult,
@@ -139,7 +141,7 @@ pub fn build_index(options: BuildOptions) -> anyhow::Result<PathBuf> {
         serde_json::to_vec_pretty(&serde_json::json!({
             "dataset_id": options.dataset_id,
             "index_version": version,
-            "path": version_dir
+            "path": PathBuf::from("versions").join(&version)
         }))?,
     )?;
 
@@ -147,27 +149,28 @@ pub fn build_index(options: BuildOptions) -> anyhow::Result<PathBuf> {
 }
 
 pub fn load_current_index(indexes_root: &Path, dataset_id: &str) -> anyhow::Result<SearchIndex> {
+    load_current_index_with_embedding_override(
+        indexes_root,
+        dataset_id,
+        &EmbeddingConfigOverride::default(),
+    )
+}
+
+pub fn load_current_index_with_embedding_override(
+    indexes_root: &Path,
+    dataset_id: &str,
+    embedding_override: &EmbeddingConfigOverride,
+) -> anyhow::Result<SearchIndex> {
     let current_path = indexes_root.join(dataset_id).join("current.json");
     let current: Value = serde_json::from_slice(&fs::read(&current_path)?)?;
-    let root = current
-        .get("path")
-        .and_then(Value::as_str)
-        .map(PathBuf::from)
-        .ok_or_else(|| anyhow!("current.json missing path"))?;
     let index_version = current
         .get("index_version")
         .and_then(Value::as_str)
         .unwrap_or("unknown")
         .to_string();
+    let root = resolve_current_root(&current_path, &current, &index_version)?;
     let schema: DatasetSchema = serde_json::from_slice(&fs::read(root.join("schema.json"))?)?;
-    let embedding = {
-        let path = root.join("embedding_config.json");
-        if path.exists() {
-            Some(serde_json::from_slice(&fs::read(path)?)?)
-        } else {
-            None
-        }
-    };
+    let embedding = load_embedding_config(&root, embedding_override)?;
     Ok(SearchIndex {
         dataset_id: dataset_id.to_string(),
         index_version,
@@ -175,6 +178,59 @@ pub fn load_current_index(indexes_root: &Path, dataset_id: &str) -> anyhow::Resu
         schema,
         embedding,
     })
+}
+
+fn resolve_current_root(
+    current_path: &Path,
+    current: &Value,
+    index_version: &str,
+) -> anyhow::Result<PathBuf> {
+    let raw = current
+        .get("path")
+        .and_then(Value::as_str)
+        .ok_or_else(|| anyhow!("current.json missing path"))?;
+    let raw_path = PathBuf::from(raw);
+    let dataset_dir = current_path
+        .parent()
+        .ok_or_else(|| anyhow!("current.json has no parent directory"))?;
+    let mut candidates = Vec::new();
+    if raw_path.is_absolute() {
+        candidates.push(raw_path);
+        candidates.push(dataset_dir.join("versions").join(index_version));
+    } else {
+        candidates.push(dataset_dir.join(&raw_path));
+        candidates.push(dataset_dir.join("versions").join(index_version));
+        candidates.push(raw_path);
+    }
+    for candidate in &candidates {
+        if candidate.join("schema.json").exists() {
+            return Ok(candidate.clone());
+        }
+    }
+    candidates
+        .into_iter()
+        .next()
+        .ok_or_else(|| anyhow!("current.json path could not be resolved"))
+}
+
+fn load_embedding_config(
+    root: &Path,
+    embedding_override: &EmbeddingConfigOverride,
+) -> anyhow::Result<Option<EmbeddingConfig>> {
+    let path = root.join("embedding_config.json");
+    let mut embedding = if path.exists() {
+        let mut cfg: EmbeddingConfig = serde_json::from_slice(&fs::read(path)?)?;
+        resolve_config_paths(&mut cfg, root);
+        Some(cfg)
+    } else {
+        embedding_override.to_config()?
+    };
+    if let Some(cfg) = &mut embedding {
+        embedding_override.apply_to(cfg);
+    } else if !embedding_override.is_empty() {
+        anyhow::bail!("embedding override was configured, but embedding_config.json is missing and model paths are incomplete");
+    }
+    Ok(embedding)
 }
 
 impl SearchIndex {
@@ -1020,5 +1076,188 @@ mod tests {
 
         assert_eq!(response.results.len(), 1);
         assert_eq!(response.results[0].record_id, "c-001");
+    }
+
+    #[test]
+    fn current_json_uses_portable_relative_index_path() {
+        let dir = tempdir().unwrap();
+        let schema_path = dir.path().join("schema.json");
+        let input_path = dir.path().join("input.jsonl");
+        fs::write(
+            &schema_path,
+            serde_json::to_vec(&json!({
+                "dataset_id": "contracts",
+                "primary_key": "contract_id",
+                "text_fields": ["title"],
+                "display_fields": ["title"],
+                "filter_fields": {}
+            }))
+            .unwrap(),
+        )
+        .unwrap();
+        fs::write(
+            &input_path,
+            "{\"contract_id\":\"c-001\",\"title\":\"test\"}\n",
+        )
+        .unwrap();
+
+        let indexes_root = dir.path().join("indexes");
+        build_index(BuildOptions {
+            dataset_id: "contracts".to_string(),
+            schema_path,
+            input_path,
+            indexes_root: indexes_root.clone(),
+            version: Some("v1".to_string()),
+            embedding: None,
+            chunking: ChunkOptions::default(),
+        })
+        .unwrap();
+
+        let current_path = indexes_root.join("contracts").join("current.json");
+        let current: Value = serde_json::from_slice(&fs::read(current_path).unwrap()).unwrap();
+        let path = current.get("path").and_then(Value::as_str).unwrap();
+        assert!(!PathBuf::from(path).is_absolute());
+
+        let moved_indexes_root = dir.path().join("moved_indexes");
+        fs::rename(&indexes_root, &moved_indexes_root).unwrap();
+        let index = load_current_index(&moved_indexes_root, "contracts").unwrap();
+        assert_eq!(index.index_version, "v1");
+        assert!(index
+            .root
+            .ends_with(Path::new("contracts").join("versions").join("v1")));
+    }
+
+    #[test]
+    fn current_json_absolute_path_falls_back_after_move() {
+        let dir = tempdir().unwrap();
+        let schema_path = dir.path().join("schema.json");
+        let input_path = dir.path().join("input.jsonl");
+        fs::write(
+            &schema_path,
+            serde_json::to_vec(&json!({
+                "dataset_id": "contracts",
+                "primary_key": "contract_id",
+                "text_fields": ["title"],
+                "display_fields": ["title"],
+                "filter_fields": {}
+            }))
+            .unwrap(),
+        )
+        .unwrap();
+        fs::write(
+            &input_path,
+            "{\"contract_id\":\"c-001\",\"title\":\"test\"}\n",
+        )
+        .unwrap();
+
+        let indexes_root = dir.path().join("indexes");
+        let version_dir = build_index(BuildOptions {
+            dataset_id: "contracts".to_string(),
+            schema_path,
+            input_path,
+            indexes_root: indexes_root.clone(),
+            version: Some("v1".to_string()),
+            embedding: None,
+            chunking: ChunkOptions::default(),
+        })
+        .unwrap();
+        fs::write(
+            indexes_root.join("contracts").join("current.json"),
+            serde_json::to_vec(&json!({
+                "dataset_id": "contracts",
+                "index_version": "v1",
+                "path": version_dir
+            }))
+            .unwrap(),
+        )
+        .unwrap();
+
+        let moved_indexes_root = dir.path().join("moved_indexes");
+        fs::rename(&indexes_root, &moved_indexes_root).unwrap();
+        let index = load_current_index(&moved_indexes_root, "contracts").unwrap();
+        assert_eq!(index.index_version, "v1");
+        assert!(index
+            .root
+            .ends_with(Path::new("contracts").join("versions").join("v1")));
+    }
+
+    #[test]
+    fn embedding_override_replaces_model_file_paths() {
+        let dir = tempdir().unwrap();
+        let version_dir = dir
+            .path()
+            .join("indexes")
+            .join("contracts")
+            .join("versions")
+            .join("v1");
+        fs::create_dir_all(&version_dir).unwrap();
+        fs::write(
+            version_dir.join("schema.json"),
+            serde_json::to_vec(&json!({
+                "dataset_id": "contracts",
+                "primary_key": "contract_id",
+                "text_fields": ["title"],
+                "display_fields": ["title"],
+                "filter_fields": {}
+            }))
+            .unwrap(),
+        )
+        .unwrap();
+        fs::write(
+            version_dir.join("embedding_config.json"),
+            serde_json::to_vec(&EmbeddingConfig {
+                model_path: PathBuf::from("old-model.onnx"),
+                tokenizer_path: PathBuf::from("old-tokenizer.json"),
+                runtime_library_path: PathBuf::from("old-onnxruntime.dll"),
+                dimension: 123,
+                max_input_tokens: 456,
+                model_id: "old-model".to_string(),
+                query_prefix: "Q: ".to_string(),
+                document_prefix: "D: ".to_string(),
+                preload_model_to_memory: false,
+            })
+            .unwrap(),
+        )
+        .unwrap();
+        fs::write(
+            dir.path()
+                .join("indexes")
+                .join("contracts")
+                .join("current.json"),
+            serde_json::to_vec(&json!({
+                "dataset_id": "contracts",
+                "index_version": "v1",
+                "path": "versions/v1"
+            }))
+            .unwrap(),
+        )
+        .unwrap();
+
+        let override_cfg = EmbeddingConfigOverride {
+            model_path: Some(PathBuf::from("D:/models/model.onnx")),
+            tokenizer_path: Some(PathBuf::from("D:/models/tokenizer.json")),
+            runtime_library_path: Some(PathBuf::from("D:/models/onnxruntime.dll")),
+            ..EmbeddingConfigOverride::default()
+        };
+        let index = load_current_index_with_embedding_override(
+            &dir.path().join("indexes"),
+            "contracts",
+            &override_cfg,
+        )
+        .unwrap();
+        let embedding = index.embedding.unwrap();
+        assert_eq!(embedding.model_path, PathBuf::from("D:/models/model.onnx"));
+        assert_eq!(
+            embedding.tokenizer_path,
+            PathBuf::from("D:/models/tokenizer.json")
+        );
+        assert_eq!(
+            embedding.runtime_library_path,
+            PathBuf::from("D:/models/onnxruntime.dll")
+        );
+        assert_eq!(embedding.dimension, 123);
+        assert_eq!(embedding.max_input_tokens, 456);
+        assert_eq!(embedding.query_prefix, "Q: ");
+        assert_eq!(embedding.document_prefix, "D: ");
     }
 }

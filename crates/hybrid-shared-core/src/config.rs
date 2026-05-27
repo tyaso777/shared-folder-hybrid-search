@@ -2,11 +2,25 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
+use crate::embedding::EmbeddingConfigOverride;
+
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct SharedSearchConfig {
     pub shared_root: Option<PathBuf>,
     pub dataset: Option<String>,
     pub indexes_root: Option<PathBuf>,
+    pub embedding_model: Option<PathBuf>,
+    pub tokenizer: Option<PathBuf>,
+    pub ort_dll: Option<PathBuf>,
+    pub embedding_dim: Option<usize>,
+    pub max_input_tokens: Option<usize>,
+    pub embedding_model_id: Option<String>,
+    pub query_prefix: Option<String>,
+    pub document_prefix: Option<String>,
+    pub preload_model_to_memory: Option<bool>,
+    pub chunk_mode: Option<String>,
+    pub chunk_size: Option<usize>,
+    pub chunk_overlap: Option<usize>,
     pub poll_seconds: Option<u64>,
     pub done_ttl_secs: Option<u64>,
     pub failed_ttl_secs: Option<u64>,
@@ -35,7 +49,28 @@ impl SharedSearchConfig {
         config.indexes_root = config
             .indexes_root
             .map(|path| resolve_relative(base_dir, path));
+        config.embedding_model = config
+            .embedding_model
+            .map(|path| resolve_relative(base_dir, path));
+        config.tokenizer = config
+            .tokenizer
+            .map(|path| resolve_relative(base_dir, path));
+        config.ort_dll = config.ort_dll.map(|path| resolve_relative(base_dir, path));
         Ok(config)
+    }
+
+    pub fn embedding_override(&self) -> EmbeddingConfigOverride {
+        EmbeddingConfigOverride {
+            model_path: self.embedding_model.clone(),
+            tokenizer_path: self.tokenizer.clone(),
+            runtime_library_path: self.ort_dll.clone(),
+            dimension: self.embedding_dim,
+            max_input_tokens: self.max_input_tokens,
+            model_id: self.embedding_model_id.clone(),
+            query_prefix: self.query_prefix.clone(),
+            document_prefix: self.document_prefix.clone(),
+            preload_model_to_memory: self.preload_model_to_memory,
+        }
     }
 }
 

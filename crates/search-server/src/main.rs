@@ -5,7 +5,8 @@ use std::time::{Duration, Instant};
 
 use clap::Parser;
 use hybrid_shared_core::config::{default_config_path, SharedSearchConfig};
-use hybrid_shared_core::index::load_current_index;
+use hybrid_shared_core::embedding::EmbeddingConfigOverride;
+use hybrid_shared_core::index::load_current_index_with_embedding_override;
 use hybrid_shared_core::protocol::{Request, Response, ResponseError, ResponseOk};
 use hybrid_shared_core::shared_folder::{
     atomic_write_json, ensure_layout, read_json, response_path,
@@ -38,6 +39,7 @@ struct ResolvedArgs {
     done_ttl_secs: u64,
     failed_ttl_secs: u64,
     cleanup_interval_secs: u64,
+    embedding_override: EmbeddingConfigOverride,
 }
 
 fn main() -> anyhow::Result<()> {
@@ -47,7 +49,11 @@ fn main() -> anyhow::Result<()> {
     let mut last_cleanup = Instant::now();
     println!("watching {}", args.shared_root.display());
     loop {
-        process_once(&args.shared_root, &args.indexes_root)?;
+        process_once(
+            &args.shared_root,
+            &args.indexes_root,
+            &args.embedding_override,
+        )?;
         if last_cleanup.elapsed() >= Duration::from_secs(args.cleanup_interval_secs) {
             cleanup_old_files(&args.shared_root, args.done_ttl_secs, args.failed_ttl_secs)?;
             last_cleanup = Instant::now();
@@ -62,6 +68,7 @@ fn resolve_args(args: Args) -> anyhow::Result<ResolvedArgs> {
         Some(path) if path.exists() => SharedSearchConfig::load_resolved(&path)?,
         _ => SharedSearchConfig::default(),
     };
+    let embedding_override = config.embedding_override();
     Ok(ResolvedArgs {
         shared_root: args
             .shared_root
@@ -81,10 +88,15 @@ fn resolve_args(args: Args) -> anyhow::Result<ResolvedArgs> {
             .cleanup_interval_secs
             .or(config.cleanup_interval_secs)
             .unwrap_or(60),
+        embedding_override,
     })
 }
 
-fn process_once(shared_root: &Path, indexes_root: &Path) -> anyhow::Result<()> {
+fn process_once(
+    shared_root: &Path,
+    indexes_root: &Path,
+    embedding_override: &EmbeddingConfigOverride,
+) -> anyhow::Result<()> {
     let pending = shared_root.join("requests").join("pending");
     for entry in fs::read_dir(pending)? {
         let path = entry?.path();
@@ -110,7 +122,7 @@ fn process_once(shared_root: &Path, indexes_root: &Path) -> anyhow::Result<()> {
             continue;
         }
 
-        let outcome = handle_request(&processing, shared_root, indexes_root);
+        let outcome = handle_request(&processing, shared_root, indexes_root, embedding_override);
         let target_dir = if outcome.is_ok() { "done" } else { "failed" };
         let target = shared_root
             .join("requests")
@@ -166,13 +178,22 @@ fn cleanup_dir(dir: &Path, ttl: Duration) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn handle_request(path: &Path, shared_root: &Path, indexes_root: &Path) -> anyhow::Result<()> {
+fn handle_request(
+    path: &Path,
+    shared_root: &Path,
+    indexes_root: &Path,
+    embedding_override: &EmbeddingConfigOverride,
+) -> anyhow::Result<()> {
     let request: Request = read_json(path)?;
     match request {
         Request::Search(req) => {
             let out_path = response_path(shared_root, &req.client_id, &req.request_id);
-            let response = match load_current_index(indexes_root, &req.dataset_id)
-                .and_then(|index| index.search(&req))
+            let response = match load_current_index_with_embedding_override(
+                indexes_root,
+                &req.dataset_id,
+                embedding_override,
+            )
+            .and_then(|index| index.search(&req))
             {
                 Ok(result) => Response::Ok(ResponseOk::Search(result)),
                 Err(err) => Response::Error(ResponseError {
@@ -184,8 +205,12 @@ fn handle_request(path: &Path, shared_root: &Path, indexes_root: &Path) -> anyho
         }
         Request::DescribeDataset(req) => {
             let out_path = response_path(shared_root, &req.client_id, &req.request_id);
-            let response = match load_current_index(indexes_root, &req.dataset_id)
-                .and_then(|index| index.describe(req.request_id.clone()))
+            let response = match load_current_index_with_embedding_override(
+                indexes_root,
+                &req.dataset_id,
+                embedding_override,
+            )
+            .and_then(|index| index.describe(req.request_id.clone()))
             {
                 Ok(result) => Response::Ok(ResponseOk::Dataset(result)),
                 Err(err) => Response::Error(ResponseError {

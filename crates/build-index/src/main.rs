@@ -31,24 +31,24 @@ struct Args {
     tokenizer: Option<PathBuf>,
     #[arg(long)]
     ort_dll: Option<PathBuf>,
-    #[arg(long, default_value_t = 768)]
-    embedding_dim: usize,
-    #[arg(long, default_value_t = 8192)]
-    max_input_tokens: usize,
-    #[arg(long, default_value = "ruri-v3-onnx")]
-    embedding_model_id: String,
-    #[arg(long, default_value = "検索クエリ: ")]
-    query_prefix: String,
-    #[arg(long, default_value = "検索文書: ")]
-    document_prefix: String,
+    #[arg(long)]
+    embedding_dim: Option<usize>,
+    #[arg(long)]
+    max_input_tokens: Option<usize>,
+    #[arg(long)]
+    embedding_model_id: Option<String>,
+    #[arg(long)]
+    query_prefix: Option<String>,
+    #[arg(long)]
+    document_prefix: Option<String>,
     #[arg(long)]
     preload_model_to_memory: bool,
-    #[arg(long, default_value = "none")]
-    chunk_mode: String,
-    #[arg(long, default_value_t = 1200)]
-    chunk_size: usize,
-    #[arg(long, default_value_t = 200)]
-    chunk_overlap: usize,
+    #[arg(long)]
+    chunk_mode: Option<String>,
+    #[arg(long)]
+    chunk_size: Option<usize>,
+    #[arg(long)]
+    chunk_overlap: Option<usize>,
 }
 
 #[derive(Debug)]
@@ -128,18 +128,34 @@ fn resolve_args(args: Args) -> anyhow::Result<ResolvedArgs> {
             .or(config.indexes_root)
             .unwrap_or_else(|| PathBuf::from("indexes")),
         index_version: args.index_version,
-        embedding_model: args.embedding_model,
-        tokenizer: args.tokenizer,
-        ort_dll: args.ort_dll,
-        embedding_dim: args.embedding_dim,
-        max_input_tokens: args.max_input_tokens,
-        embedding_model_id: args.embedding_model_id,
-        query_prefix: args.query_prefix,
-        document_prefix: args.document_prefix,
-        preload_model_to_memory: args.preload_model_to_memory,
-        chunk_mode: args.chunk_mode,
-        chunk_size: args.chunk_size,
-        chunk_overlap: args.chunk_overlap,
+        embedding_model: args.embedding_model.or(config.embedding_model),
+        tokenizer: args.tokenizer.or(config.tokenizer),
+        ort_dll: args.ort_dll.or(config.ort_dll),
+        embedding_dim: args.embedding_dim.or(config.embedding_dim).unwrap_or(768),
+        max_input_tokens: args
+            .max_input_tokens
+            .or(config.max_input_tokens)
+            .unwrap_or(8192),
+        embedding_model_id: args
+            .embedding_model_id
+            .or(config.embedding_model_id)
+            .unwrap_or_else(|| "ruri-v3-onnx".to_string()),
+        query_prefix: args
+            .query_prefix
+            .or(config.query_prefix)
+            .unwrap_or_else(|| "検索クエリ: ".to_string()),
+        document_prefix: args
+            .document_prefix
+            .or(config.document_prefix)
+            .unwrap_or_else(|| "検索文書: ".to_string()),
+        preload_model_to_memory: args.preload_model_to_memory
+            || config.preload_model_to_memory.unwrap_or(false),
+        chunk_mode: args
+            .chunk_mode
+            .or(config.chunk_mode)
+            .unwrap_or_else(|| "none".to_string()),
+        chunk_size: args.chunk_size.or(config.chunk_size).unwrap_or(1200),
+        chunk_overlap: args.chunk_overlap.or(config.chunk_overlap).unwrap_or(200),
     })
 }
 

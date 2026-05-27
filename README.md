@@ -99,12 +99,30 @@ cargo run -p search-client -- --config examples\shared-search.toml
 
 Relative paths in `shared-search.toml`, such as `shared_root = "shared_demo"` and `indexes_root = "indexes"`, are resolved relative to the config file location. This keeps double-click deployments stable even when the current working directory differs from the executable directory.
 
+`indexes_root` can point anywhere. For example, if `search-server.exe` is in `target/release/` but you want to use the project-level `indexes/` directory, set `indexes_root = "..\\..\\indexes"` in the TOML next to the exe, or use an absolute path. New `current.json` files store the active index version as a path relative to `current.json`, so moving the whole `indexes/` tree is supported.
+
+For vector search, model files can also be configured in `shared-search.toml`. This lets you keep the index on a shared folder while loading `model.onnx`, `tokenizer.json`, and `onnxruntime.dll` from a fast local disk on the server PC. Values in TOML override the model file paths stored in `embedding_config.json`; other embedding settings remain in the index unless explicitly set in TOML.
+
 Example:
 
 ```toml
 shared_root = "\\\\server\\share\\search"
 dataset = "my_project"
 indexes_root = "indexes"
+
+# Optional vector model override.
+embedding_model = "D:\\shared-search-models\\ruri-v3-onnx\\model.onnx"
+tokenizer = "D:\\shared-search-models\\ruri-v3-onnx\\tokenizer.json"
+ort_dll = "D:\\shared-search-models\\ruri-v3-onnx\\onnxruntime.dll"
+embedding_dim = 768
+max_input_tokens = 512
+query_prefix = "検索クエリ: "
+document_prefix = "検索文書: "
+
+# Optional build-index chunking defaults.
+chunk_mode = "smart"
+chunk_size = 1200
+chunk_overlap = 200
 
 poll_seconds = 2
 done_ttl_secs = 600

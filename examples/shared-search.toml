@@ -5,6 +5,23 @@ shared_root = "shared_demo"
 dataset = "contracts"
 indexes_root = "indexes"
 
+# Optional vector/embedding settings. Relative paths are resolved from this TOML file.
+# Use these when model files are stored outside the index, for example on a server-local SSD.
+# embedding_model = "models/ruri-v3-onnx/model.onnx"
+# tokenizer = "models/ruri-v3-onnx/tokenizer.json"
+# ort_dll = "models/ruri-v3-onnx/onnxruntime.dll"
+# embedding_dim = 768
+# max_input_tokens = 512
+# embedding_model_id = "ruri-v3-onnx"
+# query_prefix = "検索クエリ: "
+# document_prefix = "検索文書: "
+# preload_model_to_memory = false
+
+# Optional build-index chunking defaults.
+# chunk_mode = "smart"
+# chunk_size = 1200
+# chunk_overlap = 200
+
 # Server settings
 poll_seconds = 2
 done_ttl_secs = 600

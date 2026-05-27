@@ -25,6 +25,98 @@ pub struct EmbeddingConfig {
     pub preload_model_to_memory: bool,
 }
 
+#[derive(Debug, Clone, Default)]
+pub struct EmbeddingConfigOverride {
+    pub model_path: Option<PathBuf>,
+    pub tokenizer_path: Option<PathBuf>,
+    pub runtime_library_path: Option<PathBuf>,
+    pub dimension: Option<usize>,
+    pub max_input_tokens: Option<usize>,
+    pub model_id: Option<String>,
+    pub query_prefix: Option<String>,
+    pub document_prefix: Option<String>,
+    pub preload_model_to_memory: Option<bool>,
+}
+
+impl EmbeddingConfigOverride {
+    pub fn is_empty(&self) -> bool {
+        self.model_path.is_none()
+            && self.tokenizer_path.is_none()
+            && self.runtime_library_path.is_none()
+            && self.dimension.is_none()
+            && self.max_input_tokens.is_none()
+            && self.model_id.is_none()
+            && self.query_prefix.is_none()
+            && self.document_prefix.is_none()
+            && self.preload_model_to_memory.is_none()
+    }
+
+    pub fn apply_to(&self, cfg: &mut EmbeddingConfig) {
+        if let Some(value) = &self.model_path {
+            cfg.model_path = value.clone();
+        }
+        if let Some(value) = &self.tokenizer_path {
+            cfg.tokenizer_path = value.clone();
+        }
+        if let Some(value) = &self.runtime_library_path {
+            cfg.runtime_library_path = value.clone();
+        }
+        if let Some(value) = self.dimension {
+            cfg.dimension = value;
+        }
+        if let Some(value) = self.max_input_tokens {
+            cfg.max_input_tokens = value;
+        }
+        if let Some(value) = &self.model_id {
+            cfg.model_id = value.clone();
+        }
+        if let Some(value) = &self.query_prefix {
+            cfg.query_prefix = value.clone();
+        }
+        if let Some(value) = &self.document_prefix {
+            cfg.document_prefix = value.clone();
+        }
+        if let Some(value) = self.preload_model_to_memory {
+            cfg.preload_model_to_memory = value;
+        }
+    }
+
+    pub fn to_config(&self) -> anyhow::Result<Option<EmbeddingConfig>> {
+        let any_path = self.model_path.is_some()
+            || self.tokenizer_path.is_some()
+            || self.runtime_library_path.is_some();
+        if !any_path {
+            return Ok(None);
+        }
+        let (Some(model_path), Some(tokenizer_path), Some(runtime_library_path)) = (
+            self.model_path.clone(),
+            self.tokenizer_path.clone(),
+            self.runtime_library_path.clone(),
+        ) else {
+            anyhow::bail!("embedding_model, tokenizer, and ort_dll must be configured together");
+        };
+        Ok(Some(EmbeddingConfig {
+            model_path,
+            tokenizer_path,
+            runtime_library_path,
+            dimension: self.dimension.unwrap_or(768),
+            max_input_tokens: self
+                .max_input_tokens
+                .unwrap_or_else(default_max_input_tokens),
+            model_id: self.model_id.clone().unwrap_or_else(default_model_id),
+            query_prefix: self
+                .query_prefix
+                .clone()
+                .unwrap_or_else(|| "検索クエリ: ".to_string()),
+            document_prefix: self
+                .document_prefix
+                .clone()
+                .unwrap_or_else(|| "検索文書: ".to_string()),
+            preload_model_to_memory: self.preload_model_to_memory.unwrap_or(false),
+        }))
+    }
+}
+
 pub struct OnnxEmbedder {
     cfg: EmbeddingConfig,
     session: Mutex<Session>,
