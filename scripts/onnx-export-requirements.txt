@@ -1,4 +1,4 @@
-optimum[onnxruntime]
-transformers>=5.0.0rc3
+optimum[onnxruntime]==1.27.0
+transformers==4.53.3
 torch
 sentencepiece

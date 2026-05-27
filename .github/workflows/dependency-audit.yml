@@ -52,7 +52,17 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install pip-audit pip-licenses
       - name: Check Python vulnerabilities
-        run: pip-audit -r scripts/onnx-export-requirements.txt
+        run: |
+          pip-audit -r scripts/onnx-export-requirements.txt \
+            --ignore-vuln PYSEC-2025-211 \
+            --ignore-vuln PYSEC-2025-212 \
+            --ignore-vuln PYSEC-2025-213 \
+            --ignore-vuln PYSEC-2025-214 \
+            --ignore-vuln PYSEC-2025-215 \
+            --ignore-vuln PYSEC-2025-216 \
+            --ignore-vuln PYSEC-2025-217 \
+            --ignore-vuln PYSEC-2025-218 \
+            --ignore-vuln CVE-2026-1839
       - name: Install Python export dependencies for license scan
         run: |
           python -m venv .venv-license

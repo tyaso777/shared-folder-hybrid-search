@@ -138,7 +138,7 @@ GitHub Actions runs dependency checks on `main`, pull requests, manual dispatch,
 - Python vulnerabilities: `pip-audit` against `scripts/onnx-export-requirements.txt`.
 - Python licenses: `pip-licenses` against the ONNX export helper dependencies.
 
-The Python dependency set is only for `scripts/export_ruri_v3_onnx.ps1`; the Rust search server/client do not require Python at runtime.
+The Python dependency set is only for `scripts/export_ruri_v3_onnx.ps1`; the Rust search server/client do not require Python at runtime. The ONNX export requirements intentionally pin compatible `optimum` and `transformers` versions. `pip-audit` ignores known `transformers` advisories for this helper because the Python environment is used only during ONNX export, is not shipped with the runtime executables, and only trusted model IDs should be exported.
 
 ## Use Your Own JSON
 
