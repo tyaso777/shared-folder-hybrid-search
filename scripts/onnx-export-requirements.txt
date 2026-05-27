@@ -1,4 +1,4 @@
 optimum[onnxruntime]
-transformers
+transformers>=5.0.0rc3
 torch
 sentencepiece

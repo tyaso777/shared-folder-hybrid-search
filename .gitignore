@@ -13,6 +13,7 @@ examples/jawikibooks_vector_50/
 models/
 vendor/
 .venv-onnx/
+.audit-venv/
 *.onnx
 onnxruntime.dll
 libonnxruntime.so
