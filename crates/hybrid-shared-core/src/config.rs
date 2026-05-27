@@ -25,6 +25,26 @@ impl SharedSearchConfig {
         let text = std::fs::read_to_string(path)?;
         Ok(toml::from_str(&text)?)
     }
+
+    pub fn load_resolved(path: &Path) -> anyhow::Result<Self> {
+        let mut config = Self::load(path)?;
+        let base_dir = path.parent().unwrap_or_else(|| Path::new("."));
+        config.shared_root = config
+            .shared_root
+            .map(|path| resolve_relative(base_dir, path));
+        config.indexes_root = config
+            .indexes_root
+            .map(|path| resolve_relative(base_dir, path));
+        Ok(config)
+    }
+}
+
+fn resolve_relative(base_dir: &Path, path: PathBuf) -> PathBuf {
+    if path.is_absolute() {
+        path
+    } else {
+        base_dir.join(path)
+    }
 }
 
 pub fn default_config_path() -> Option<PathBuf> {

@@ -53,6 +53,8 @@ By default, each executable looks for `shared-search.toml` next to the executabl
 cargo run -p search-client -- --config examples\shared-search.toml
 ```
 
+Relative paths in `shared-search.toml`, such as `shared_root = "shared_demo"` and `indexes_root = "indexes"`, are resolved relative to the config file location. This keeps double-click deployments stable even when the current working directory differs from the executable directory.
+
 Example:
 
 ```toml

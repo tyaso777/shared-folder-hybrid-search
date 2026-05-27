@@ -113,7 +113,7 @@ fn main() -> anyhow::Result<()> {
 fn resolve_args(args: Args) -> anyhow::Result<ResolvedArgs> {
     let config_path = args.config.or_else(default_config_path);
     let config = match config_path {
-        Some(path) if path.exists() => SharedSearchConfig::load(&path)?,
+        Some(path) if path.exists() => SharedSearchConfig::load_resolved(&path)?,
         _ => SharedSearchConfig::default(),
     };
     let dataset = args.dataset.or(config.dataset).ok_or_else(|| {
