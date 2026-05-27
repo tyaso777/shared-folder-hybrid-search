@@ -1,0 +1,61 @@
+# OSV scanner exceptions.
+#
+# Keep this file narrow: each entry should document why the vulnerability is
+# accepted for this project and should be revisited when the owning dependency
+# can be upgraded safely.
+
+[[IgnoredVulns]]
+id = "PYSEC-2025-211"
+reason = "transformers is used only by the optional local ONNX export helper, not by distributed runtime binaries. Pinned with optimum until compatible secure export versions are available."
+
+[[IgnoredVulns]]
+id = "PYSEC-2025-212"
+reason = "transformers is used only by the optional local ONNX export helper, not by distributed runtime binaries. Pinned with optimum until compatible secure export versions are available."
+
+[[IgnoredVulns]]
+id = "PYSEC-2025-213"
+reason = "transformers is used only by the optional local ONNX export helper, not by distributed runtime binaries. Pinned with optimum until compatible secure export versions are available."
+
+[[IgnoredVulns]]
+id = "PYSEC-2025-214"
+reason = "transformers is used only by the optional local ONNX export helper, not by distributed runtime binaries. Pinned with optimum until compatible secure export versions are available."
+
+[[IgnoredVulns]]
+id = "PYSEC-2025-215"
+reason = "transformers is used only by the optional local ONNX export helper, not by distributed runtime binaries. Pinned with optimum until compatible secure export versions are available."
+
+[[IgnoredVulns]]
+id = "PYSEC-2025-216"
+reason = "transformers is used only by the optional local ONNX export helper, not by distributed runtime binaries. Pinned with optimum until compatible secure export versions are available."
+
+[[IgnoredVulns]]
+id = "PYSEC-2025-217"
+reason = "transformers is used only by the optional local ONNX export helper, not by distributed runtime binaries. Pinned with optimum until compatible secure export versions are available."
+
+[[IgnoredVulns]]
+id = "PYSEC-2025-218"
+reason = "transformers is used only by the optional local ONNX export helper, not by distributed runtime binaries. Pinned with optimum until compatible secure export versions are available."
+
+[[IgnoredVulns]]
+id = "GHSA-69w3-r845-3855"
+reason = "transformers is used only by the optional local ONNX export helper. The fixed 5.0.0rc3 line is not yet used because ONNX export compatibility is pinned with optimum."
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2025-0141"
+reason = "bincode is a transitive dependency of hnsw_rs. Vector index files are local project artifacts, not network-provided user input."
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2021-0153"
+reason = "encoding is pulled through Lindera dictionary handling. Search input is plain text, and the dictionary data is local dependency data."
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2026-0002"
+reason = "lru is transitive through Tantivy 0.25. Updating requires a coordinated Tantivy/Lindera compatibility pass; current use is local search indexing."
+
+[[IgnoredVulns]]
+id = "GHSA-rhfx-m35p-ff5j"
+reason = "Alias for the lru advisory accepted above while Tantivy/Lindera compatibility is validated."
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2024-0436"
+reason = "paste is a proc-macro transitive dependency used at build time through tokenizers, not runtime request processing."

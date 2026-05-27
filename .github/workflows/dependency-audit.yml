@@ -19,6 +19,7 @@ jobs:
     uses: "google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@v2.3.8"
     with:
       scan-args: |-
+        --config=./osv-scanner.toml
         --recursive
         ./
     permissions:
@@ -62,6 +63,7 @@ jobs:
             --ignore-vuln PYSEC-2025-216 \
             --ignore-vuln PYSEC-2025-217 \
             --ignore-vuln PYSEC-2025-218 \
+            --ignore-vuln GHSA-69w3-r845-3855 \
             --ignore-vuln CVE-2026-1839
       - name: Install Python export dependencies for license scan
         run: |
