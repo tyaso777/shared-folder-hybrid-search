@@ -107,8 +107,6 @@
       <div id="status" class="status">準備中</div>
       <select id="sortOrder" class="sort-select">
         <option value="combined">総合おすすめ順</option>
-        <option value="keyword">キーワード一致順</option>
-        <option value="semantic">意味の近さ順</option>
       </select>
     </div>
     <div id="results" class="results"></div>
@@ -120,9 +118,7 @@
       activeSource: '',
       bm25On: true,
       vectorOn: true,
-      resultGranularity: 'document',
-      lastResults: [],
-      lastQueryTerms: []
+      resultGranularity: 'document'
     };
     setInterval(() => fetch('/api/heartbeat', { method: 'POST' }), 5000);
 
@@ -252,9 +248,7 @@
         } else {
           const terms = job.query_terms && job.query_terms.length ? job.query_terms : fallbackQueryTerms(query);
           const elapsed = Math.round(performance.now() - startedAt);
-          state.lastResults = job.results || [];
-          state.lastQueryTerms = terms;
-          renderResults(state.lastResults, terms);
+          renderResults(job.results || [], terms);
           document.getElementById('status').textContent = `${job.results.length}件の結果 - ${query || 'すべて'} / ${elapsed}ms`;
         }
         break;
@@ -271,31 +265,7 @@
         root.appendChild(empty);
         return;
       }
-      sortResults(results).forEach((result, index) => root.appendChild(renderResult(result, index, queryTerms)));
-    }
-
-    function sortResults(results) {
-      const mode = document.getElementById('sortOrder').value;
-      return [...results].sort((a, b) => {
-        if (mode === 'keyword') return compareRank(a.scores?.bm25_rank, b.scores?.bm25_rank) || compareFinalScore(a, b);
-        if (mode === 'semantic') return compareRank(a.scores?.vector_rank, b.scores?.vector_rank) || compareVectorScore(a, b) || compareFinalScore(a, b);
-        return compareFinalScore(a, b);
-      });
-    }
-
-    function compareRank(a, b) {
-      const ar = Number.isFinite(Number(a)) ? Number(a) : Number.POSITIVE_INFINITY;
-      const br = Number.isFinite(Number(b)) ? Number(b) : Number.POSITIVE_INFINITY;
-      if (ar !== br) return ar - br;
-      return 0;
-    }
-
-    function compareFinalScore(a, b) {
-      return Number(b.scores?.final_score || 0) - Number(a.scores?.final_score || 0);
-    }
-
-    function compareVectorScore(a, b) {
-      return Number(b.scores?.vector_score || 0) - Number(a.scores?.vector_score || 0);
+      results.forEach((result, index) => root.appendChild(renderResult(result, index, queryTerms)));
     }
 
     function renderResult(result, index, queryTerms) {
@@ -558,7 +528,6 @@
     document.getElementById('vectorChip').addEventListener('click', () => toggleSearchMethod('vector'));
     document.getElementById('documentUnitChip').addEventListener('click', () => setResultGranularity('document'));
     document.getElementById('chunkUnitChip').addEventListener('click', () => setResultGranularity('chunk'));
-    document.getElementById('sortOrder').addEventListener('change', () => renderResults(state.lastResults, state.lastQueryTerms));
     document.getElementById('query').addEventListener('keydown', event => { if (event.key === 'Enter') search(); });
     renderMethodChips();
     renderGranularityChips();
