@@ -4,6 +4,7 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use clap::Parser;
+use hybrid_shared_core::config::{default_config_path, SharedSearchConfig};
 use hybrid_shared_core::index::load_current_index;
 use hybrid_shared_core::protocol::{Request, Response, ResponseError, ResponseOk};
 use hybrid_shared_core::shared_folder::{
@@ -13,22 +14,34 @@ use hybrid_shared_core::shared_folder::{
 #[derive(Debug, Parser)]
 #[command(author, version, about = "Shared-folder search server")]
 struct Args {
-    #[arg(long, default_value = "shared_demo")]
+    #[arg(long)]
+    config: Option<PathBuf>,
+    #[arg(long)]
+    shared_root: Option<PathBuf>,
+    #[arg(long)]
+    indexes_root: Option<PathBuf>,
+    #[arg(long)]
+    poll_seconds: Option<u64>,
+    #[arg(long)]
+    done_ttl_secs: Option<u64>,
+    #[arg(long)]
+    failed_ttl_secs: Option<u64>,
+    #[arg(long)]
+    cleanup_interval_secs: Option<u64>,
+}
+
+#[derive(Debug)]
+struct ResolvedArgs {
     shared_root: PathBuf,
-    #[arg(long, default_value = "indexes")]
     indexes_root: PathBuf,
-    #[arg(long, default_value_t = 2)]
     poll_seconds: u64,
-    #[arg(long, default_value_t = 600)]
     done_ttl_secs: u64,
-    #[arg(long, default_value_t = 86_400)]
     failed_ttl_secs: u64,
-    #[arg(long, default_value_t = 60)]
     cleanup_interval_secs: u64,
 }
 
 fn main() -> anyhow::Result<()> {
-    let args = Args::parse();
+    let args = resolve_args(Args::parse())?;
     ensure_layout(&args.shared_root)?;
     cleanup_old_files(&args.shared_root, args.done_ttl_secs, args.failed_ttl_secs)?;
     let mut last_cleanup = Instant::now();
@@ -41,6 +54,34 @@ fn main() -> anyhow::Result<()> {
         }
         thread::sleep(Duration::from_secs(args.poll_seconds));
     }
+}
+
+fn resolve_args(args: Args) -> anyhow::Result<ResolvedArgs> {
+    let config_path = args.config.or_else(default_config_path);
+    let config = match config_path {
+        Some(path) if path.exists() => SharedSearchConfig::load(&path)?,
+        _ => SharedSearchConfig::default(),
+    };
+    Ok(ResolvedArgs {
+        shared_root: args
+            .shared_root
+            .or(config.shared_root)
+            .unwrap_or_else(|| PathBuf::from("shared_demo")),
+        indexes_root: args
+            .indexes_root
+            .or(config.indexes_root)
+            .unwrap_or_else(|| PathBuf::from("indexes")),
+        poll_seconds: args.poll_seconds.or(config.poll_seconds).unwrap_or(2),
+        done_ttl_secs: args.done_ttl_secs.or(config.done_ttl_secs).unwrap_or(600),
+        failed_ttl_secs: args
+            .failed_ttl_secs
+            .or(config.failed_ttl_secs)
+            .unwrap_or(86_400),
+        cleanup_interval_secs: args
+            .cleanup_interval_secs
+            .or(config.cleanup_interval_secs)
+            .unwrap_or(60),
+    })
 }
 
 fn process_once(shared_root: &Path, indexes_root: &Path) -> anyhow::Result<()> {

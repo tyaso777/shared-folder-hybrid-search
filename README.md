@@ -43,6 +43,42 @@ User PC
 cargo build
 ```
 
+## Configuration
+
+`search-server`, `search-client`, and `build-index` can read a shared TOML config. CLI arguments override values from the config file.
+
+By default, each executable looks for `shared-search.toml` next to the executable. You can also pass an explicit path:
+
+```powershell
+cargo run -p search-client -- --config examples\shared-search.toml
+```
+
+Example:
+
+```toml
+shared_root = "\\\\server\\share\\search"
+dataset = "my_project"
+indexes_root = "indexes"
+
+poll_seconds = 2
+done_ttl_secs = 600
+failed_ttl_secs = 86400
+cleanup_interval_secs = 60
+
+no_open = false
+keep_responses = false
+```
+
+Client distribution can therefore be:
+
+```text
+SearchClient/
+  search-client.exe
+  shared-search.toml
+```
+
+With that layout, a user can double-click `search-client.exe`; it starts the local client server, opens the browser UI, and exits after the browser heartbeat stops. For normal users, keep `no_open = false` and `keep_responses = false`.
+
 ## Dependency Checks
 
 GitHub Actions runs dependency checks on `main`, pull requests, manual dispatch, and every Monday.

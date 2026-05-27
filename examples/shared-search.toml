@@ -1,0 +1,16 @@
+# Common settings used by search-server.exe, search-client.exe, and build-index.exe.
+# Copy this file next to the exe files as shared-search.toml, or pass it with --config.
+
+shared_root = "shared_demo"
+dataset = "contracts"
+indexes_root = "indexes"
+
+# Server settings
+poll_seconds = 2
+done_ttl_secs = 600
+failed_ttl_secs = 86400
+cleanup_interval_secs = 60
+
+# Client settings
+no_open = false
+keep_responses = false

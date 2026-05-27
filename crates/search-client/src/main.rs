@@ -7,6 +7,7 @@ use axum::response::{Html, IntoResponse};
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use clap::Parser;
+use hybrid_shared_core::config::{default_config_path, SharedSearchConfig};
 use hybrid_shared_core::protocol::{
     DescribeDatasetRequest, FilterExpr, Request, Response, ResultGranularity, SearchMode,
     SearchRequest,
@@ -26,13 +27,23 @@ use uuid::Uuid;
     about = "Local browser UI client for shared-folder search"
 )]
 struct Args {
-    #[arg(long, default_value = "shared_demo")]
+    #[arg(long)]
+    config: Option<PathBuf>,
+    #[arg(long)]
+    shared_root: Option<PathBuf>,
+    #[arg(long)]
+    dataset: Option<String>,
+    #[arg(long)]
+    no_open: Option<bool>,
+    #[arg(long)]
+    keep_responses: Option<bool>,
+}
+
+#[derive(Debug)]
+struct ResolvedArgs {
     shared_root: PathBuf,
-    #[arg(long)]
     dataset: String,
-    #[arg(long)]
     no_open: bool,
-    #[arg(long)]
     keep_responses: bool,
 }
 
@@ -65,7 +76,7 @@ struct SubmitResponse {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let args = Args::parse();
+    let args = resolve_args(Args::parse())?;
     ensure_layout(&args.shared_root)?;
     let state = AppState {
         shared_root: args.shared_root,
@@ -94,6 +105,30 @@ async fn main() -> anyhow::Result<()> {
     tokio::spawn(shutdown_when_browser_disappears(state.last_seen.clone()));
     axum::serve(listener, app).await?;
     Ok(())
+}
+
+fn resolve_args(args: Args) -> anyhow::Result<ResolvedArgs> {
+    let config_path = args.config.or_else(default_config_path);
+    let config = match config_path {
+        Some(path) if path.exists() => SharedSearchConfig::load(&path)?,
+        _ => SharedSearchConfig::default(),
+    };
+    let shared_root = args
+        .shared_root
+        .or(config.shared_root)
+        .unwrap_or_else(|| PathBuf::from("shared_demo"));
+    let dataset = args.dataset.or(config.dataset).ok_or_else(|| {
+        anyhow::anyhow!("dataset is required; set --dataset or shared-search.toml dataset")
+    })?;
+    Ok(ResolvedArgs {
+        shared_root,
+        dataset,
+        no_open: args.no_open.or(config.no_open).unwrap_or(false),
+        keep_responses: args
+            .keep_responses
+            .or(config.keep_responses)
+            .unwrap_or(false),
+    })
 }
 
 async fn index_html() -> Html<&'static str> {
