@@ -37,6 +37,7 @@
     .unit-chip:not(.active) { color: #555; background: white; }
     .secondary { color: #444; background: white; }
     .status-row { display: grid; grid-template-columns: 230px 1fr; gap: 18px; align-items: center; margin-top: 26px; }
+    .status-row.sort-hidden { grid-template-columns: 1fr; }
     .status { color: #444; font-weight: 700; line-height: 1.45; }
     .sort-select { width: 100%; height: 48px; padding: 0 14px; border: 1px solid #d7d7d2; border-radius: 8px; background: white; font-size: 16px; }
     .filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; margin-top: 14px; }
@@ -103,7 +104,7 @@
       </div>
     </div>
     <div id="filters" class="filters"></div>
-    <div class="status-row">
+    <div id="statusRow" class="status-row">
       <div id="status" class="status">準備中</div>
       <select id="sortOrder" class="sort-select">
         <option value="combined">関連度順</option>
@@ -542,6 +543,13 @@
       }
     }
 
+    function updateSortVisibility() {
+      const select = document.getElementById('sortOrder');
+      const hidden = select.options.length <= 1;
+      select.hidden = hidden;
+      document.getElementById('statusRow').classList.toggle('sort-hidden', hidden);
+    }
+
     document.getElementById('search').addEventListener('click', search);
     document.getElementById('resetFilters').addEventListener('click', resetFilters);
     document.getElementById('bm25Chip').addEventListener('click', () => toggleSearchMethod('bm25'));
@@ -551,6 +559,7 @@
     document.getElementById('query').addEventListener('keydown', event => { if (event.key === 'Enter') search(); });
     renderMethodChips();
     renderGranularityChips();
+    updateSortVisibility();
     loadClientConfig().then(loadDataset);
   </script>
 </body>
