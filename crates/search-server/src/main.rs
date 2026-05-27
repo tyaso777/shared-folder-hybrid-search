@@ -48,6 +48,7 @@ fn main() -> anyhow::Result<()> {
     cleanup_old_files(&args.shared_root, args.done_ttl_secs, args.failed_ttl_secs)?;
     let mut last_cleanup = Instant::now();
     println!("watching {}", args.shared_root.display());
+    println!("using indexes_root {}", args.indexes_root.display());
     loop {
         process_once(
             &args.shared_root,

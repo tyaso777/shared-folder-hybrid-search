@@ -7,6 +7,8 @@ use crate::embedding::EmbeddingConfigOverride;
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct SharedSearchConfig {
     pub shared_root: Option<PathBuf>,
+    pub dataset_id: Option<String>,
+    // Backward-compatible alias. Prefer dataset_id in new config files.
     pub dataset: Option<String>,
     pub indexes_root: Option<PathBuf>,
     pub embedding_model: Option<PathBuf>,
@@ -71,6 +73,10 @@ impl SharedSearchConfig {
             document_prefix: self.document_prefix.clone(),
             preload_model_to_memory: self.preload_model_to_memory,
         }
+    }
+
+    pub fn dataset_id(&self) -> Option<String> {
+        self.dataset_id.clone().or_else(|| self.dataset.clone())
     }
 }
 

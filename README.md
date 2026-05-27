@@ -81,7 +81,7 @@ Put `shared-search.toml` next to each executable. For the server package, keep `
 
 ```toml
 shared_root = "\\\\fileserver\\shared-search"
-dataset = "my_project"
+dataset_id = "my_project"
 client_port = 0
 ```
 
@@ -99,7 +99,7 @@ cargo run -p search-client -- --config examples\shared-search.toml
 
 Relative paths in `shared-search.toml`, such as `shared_root = "shared_demo"` and `indexes_root = "indexes"`, are resolved relative to the config file location. This keeps double-click deployments stable even when the current working directory differs from the executable directory.
 
-`indexes_root` can point anywhere. For example, if `search-server.exe` is in `target/release/` but you want to use the project-level `indexes/` directory, set `indexes_root = "..\\..\\indexes"` in the TOML next to the exe, or use an absolute path. New `current.json` files store the active index version as a path relative to `current.json`, so moving the whole `indexes/` tree is supported.
+`dataset_id` selects one dataset folder under `indexes_root`; it is not a path. `indexes_root` can point anywhere. For example, if `search-server.exe` is in `target/release/` but you want to use the project-level `indexes/` directory, set `indexes_root = "..\\..\\indexes"` in the TOML next to the exe, or use an absolute path. New `current.json` files store the active index version as a path relative to `current.json`, so moving the whole `indexes/` tree is supported.
 
 For vector search, model files can also be configured in `shared-search.toml`. This lets you keep the index on a shared folder while loading `model.onnx`, `tokenizer.json`, and `onnxruntime.dll` from a fast local disk on the server PC. Values in TOML override the model file paths stored in `embedding_config.json`; other embedding settings remain in the index unless explicitly set in TOML.
 
@@ -107,7 +107,7 @@ Example:
 
 ```toml
 shared_root = "\\\\server\\share\\search"
-dataset = "my_project"
+dataset_id = "my_project"
 indexes_root = "indexes"
 
 # Optional vector model override.

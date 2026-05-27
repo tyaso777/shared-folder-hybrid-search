@@ -137,13 +137,16 @@ fn resolve_args(args: Args) -> anyhow::Result<ResolvedArgs> {
         Some(path) if path.exists() => SharedSearchConfig::load_resolved(&path)?,
         _ => SharedSearchConfig::default(),
     };
+    let dataset = args
+        .dataset
+        .or_else(|| config.dataset_id())
+        .ok_or_else(|| {
+            anyhow::anyhow!("dataset is required; set --dataset or shared-search.toml dataset_id")
+        })?;
     let shared_root = args
         .shared_root
         .or(config.shared_root)
         .unwrap_or_else(|| PathBuf::from("shared_demo"));
-    let dataset = args.dataset.or(config.dataset).ok_or_else(|| {
-        anyhow::anyhow!("dataset is required; set --dataset or shared-search.toml dataset")
-    })?;
     Ok(ResolvedArgs {
         shared_root,
         dataset,

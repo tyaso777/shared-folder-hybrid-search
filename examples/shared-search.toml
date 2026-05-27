@@ -2,7 +2,11 @@
 # Copy this file next to the exe files as shared-search.toml, or pass it with --config.
 
 shared_root = "shared_demo"
-dataset = "contracts"
+dataset_id = "contracts"
+
+# Root directory containing dataset index folders.
+# If this file is copied next to target/release/search-server.exe and you want the
+# project-level indexes folder, use: indexes_root = "../../indexes"
 indexes_root = "indexes"
 
 # Optional vector/embedding settings. Relative paths are resolved from this TOML file.
