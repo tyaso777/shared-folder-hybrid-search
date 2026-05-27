@@ -43,6 +43,50 @@ User PC
 cargo build
 ```
 
+## Release Build and Distribution
+
+Build release binaries on the target Windows environment:
+
+```powershell
+cargo build --release
+```
+
+The generated executables are:
+
+```text
+target/release/build-index.exe
+target/release/search-server.exe
+target/release/search-client.exe
+```
+
+Recommended server-side distribution:
+
+```text
+SearchServer/
+  build-index.exe
+  search-server.exe
+  shared-search.toml
+  indexes/
+```
+
+Recommended client-side distribution:
+
+```text
+SearchClient/
+  search-client.exe
+  shared-search.toml
+```
+
+Put `shared-search.toml` next to each executable. For the server package, keep `indexes_root = "indexes"` if the `indexes/` directory is inside `SearchServer/`. For clients, use an absolute shared-folder path such as:
+
+```toml
+shared_root = "\\\\fileserver\\shared-search"
+dataset = "my_project"
+client_port = 0
+```
+
+With this layout, users can start the browser UI by double-clicking `search-client.exe`. Server operators can start folder watching by double-clicking `search-server.exe`.
+
 ## Configuration
 
 `search-server`, `search-client`, and `build-index` can read a shared TOML config. CLI arguments override values from the config file.
