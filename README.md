@@ -107,8 +107,8 @@ Example:
 
 ```toml
 shared_root = "\\\\server\\share\\search"
-dataset_id = "my_project"
 indexes_root = "indexes"
+dataset_id = "my_project"
 
 # Optional vector model override.
 embedding_model = "D:\\shared-search-models\\ruri-v3-onnx\\model.onnx"
