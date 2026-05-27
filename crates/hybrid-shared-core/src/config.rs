@@ -58,7 +58,25 @@ impl SharedSearchConfig {
             .tokenizer
             .map(|path| resolve_relative(base_dir, path));
         config.ort_dll = config.ort_dll.map(|path| resolve_relative(base_dir, path));
+        config.apply_env_overrides();
         Ok(config)
+    }
+
+    pub fn with_env_overrides(mut self) -> Self {
+        self.apply_env_overrides();
+        self
+    }
+
+    fn apply_env_overrides(&mut self) {
+        if let Some(value) = env_path("SHARED_SEARCH_EMBEDDING_MODEL") {
+            self.embedding_model = Some(value);
+        }
+        if let Some(value) = env_path("SHARED_SEARCH_TOKENIZER") {
+            self.tokenizer = Some(value);
+        }
+        if let Some(value) = env_path("SHARED_SEARCH_ORT_DLL") {
+            self.ort_dll = Some(value);
+        }
     }
 
     pub fn embedding_override(&self) -> EmbeddingConfigOverride {
@@ -86,6 +104,12 @@ fn resolve_relative(base_dir: &Path, path: PathBuf) -> PathBuf {
     } else {
         base_dir.join(path)
     }
+}
+
+fn env_path(name: &str) -> Option<PathBuf> {
+    std::env::var_os(name)
+        .filter(|value| !value.is_empty())
+        .map(PathBuf::from)
 }
 
 pub fn default_config_path() -> Option<PathBuf> {

@@ -103,6 +103,14 @@ Relative paths in `shared-search.toml`, such as `shared_root = "shared_demo"` an
 
 For vector search, model files can also be configured in `shared-search.toml`. This lets you keep the index on a shared folder while loading `model.onnx`, `tokenizer.json`, and `onnxruntime.dll` from a fast local disk on the server PC. Values in TOML override the model file paths stored in `embedding_config.json`; other embedding settings remain in the index unless explicitly set in TOML.
 
+Model file paths can also be overridden per PC with environment variables. This is useful when one shared config is distributed but each server PC keeps the model files on a different local disk. Precedence is CLI argument, then environment variable, then `shared-search.toml`, then the index's `embedding_config.json`.
+
+```powershell
+$env:SHARED_SEARCH_EMBEDDING_MODEL = "D:\shared-search-models\ruri-v3-onnx\model.onnx"
+$env:SHARED_SEARCH_TOKENIZER = "D:\shared-search-models\ruri-v3-onnx\tokenizer.json"
+$env:SHARED_SEARCH_ORT_DLL = "D:\shared-search-models\ruri-v3-onnx\onnxruntime.dll"
+```
+
 Example:
 
 ```toml

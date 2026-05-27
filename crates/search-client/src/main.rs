@@ -135,7 +135,7 @@ fn resolve_args(args: Args) -> anyhow::Result<ResolvedArgs> {
     let config_path = args.config.or_else(default_config_path);
     let config = match config_path {
         Some(path) if path.exists() => SharedSearchConfig::load_resolved(&path)?,
-        _ => SharedSearchConfig::default(),
+        _ => SharedSearchConfig::default().with_env_overrides(),
     };
     let dataset = args
         .dataset
