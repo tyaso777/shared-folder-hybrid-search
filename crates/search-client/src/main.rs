@@ -45,6 +45,11 @@ struct ResolvedArgs {
     dataset: String,
     no_open: bool,
     keep_responses: bool,
+    default_top_k: usize,
+    request_timeout_secs: u64,
+    browser_shutdown_secs: u64,
+    search_poll_interval_ms: u64,
+    client_port: u16,
 }
 
 #[derive(Clone)]
@@ -54,6 +59,10 @@ struct AppState {
     dataset_id: String,
     last_seen: std::sync::Arc<Mutex<Instant>>,
     keep_responses: bool,
+    default_top_k: usize,
+    request_timeout: Duration,
+    browser_shutdown: Duration,
+    search_poll_interval_ms: u64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -74,6 +83,13 @@ struct SubmitResponse {
     request_id: String,
 }
 
+#[derive(Debug, Serialize)]
+struct ClientConfigResponse {
+    default_top_k: usize,
+    request_timeout_secs: u64,
+    search_poll_interval_ms: u64,
+}
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let args = resolve_args(Args::parse())?;
@@ -84,17 +100,22 @@ async fn main() -> anyhow::Result<()> {
         dataset_id: args.dataset,
         last_seen: std::sync::Arc::new(Mutex::new(Instant::now())),
         keep_responses: args.keep_responses,
+        default_top_k: args.default_top_k,
+        request_timeout: Duration::from_secs(args.request_timeout_secs),
+        browser_shutdown: Duration::from_secs(args.browser_shutdown_secs),
+        search_poll_interval_ms: args.search_poll_interval_ms,
     };
 
     let app = Router::new()
         .route("/", get(index_html))
         .route("/api/heartbeat", post(heartbeat))
+        .route("/api/client-config", get(client_config))
         .route("/api/dataset", get(describe_dataset))
         .route("/api/search", post(submit_search))
         .route("/api/jobs/:request_id", get(get_job))
         .with_state(state.clone());
 
-    let listener = TcpListener::bind("127.0.0.1:0").await?;
+    let listener = TcpListener::bind(("127.0.0.1", args.client_port)).await?;
     let addr = listener.local_addr()?;
     let url = format!("http://{addr}/");
     println!("client UI: {url}");
@@ -102,7 +123,10 @@ async fn main() -> anyhow::Result<()> {
         let _ = open::that(&url);
     }
 
-    tokio::spawn(shutdown_when_browser_disappears(state.last_seen.clone()));
+    tokio::spawn(shutdown_when_browser_disappears(
+        state.last_seen.clone(),
+        state.browser_shutdown,
+    ));
     axum::serve(listener, app).await?;
     Ok(())
 }
@@ -128,6 +152,11 @@ fn resolve_args(args: Args) -> anyhow::Result<ResolvedArgs> {
             .keep_responses
             .or(config.keep_responses)
             .unwrap_or(false),
+        default_top_k: config.default_top_k.unwrap_or(20),
+        request_timeout_secs: config.request_timeout_secs.unwrap_or(60),
+        browser_shutdown_secs: config.browser_shutdown_secs.unwrap_or(30),
+        search_poll_interval_ms: config.search_poll_interval_ms.unwrap_or(300),
+        client_port: config.client_port.unwrap_or(0),
     })
 }
 
@@ -140,6 +169,14 @@ async fn heartbeat(State(state): State<AppState>) -> impl IntoResponse {
     Json(serde_json::json!({"ok": true}))
 }
 
+async fn client_config(State(state): State<AppState>) -> impl IntoResponse {
+    Json(ClientConfigResponse {
+        default_top_k: state.default_top_k,
+        request_timeout_secs: state.request_timeout.as_secs(),
+        search_poll_interval_ms: state.search_poll_interval_ms,
+    })
+}
+
 async fn describe_dataset(State(state): State<AppState>) -> impl IntoResponse {
     match roundtrip(
         &state,
@@ -148,7 +185,7 @@ async fn describe_dataset(State(state): State<AppState>) -> impl IntoResponse {
             client_id: state.client_id.clone(),
             dataset_id: state.dataset_id.clone(),
         }),
-        Duration::from_secs(20),
+        state.request_timeout,
     )
     .await
     {
@@ -230,10 +267,13 @@ async fn roundtrip(
     }
 }
 
-async fn shutdown_when_browser_disappears(last_seen: std::sync::Arc<Mutex<Instant>>) {
+async fn shutdown_when_browser_disappears(
+    last_seen: std::sync::Arc<Mutex<Instant>>,
+    browser_shutdown: Duration,
+) {
     loop {
         tokio::time::sleep(Duration::from_secs(10)).await;
-        if last_seen.lock().await.elapsed() > Duration::from_secs(30) {
+        if last_seen.lock().await.elapsed() > browser_shutdown {
             eprintln!("browser heartbeat expired; exiting");
             std::process::exit(0);
         }

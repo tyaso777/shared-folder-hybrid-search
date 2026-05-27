@@ -118,9 +118,23 @@
       activeSource: '',
       bm25On: true,
       vectorOn: true,
-      resultGranularity: 'document'
+      resultGranularity: 'document',
+      clientConfig: { default_top_k: 20, request_timeout_secs: 60, search_poll_interval_ms: 300 }
     };
     setInterval(() => fetch('/api/heartbeat', { method: 'POST' }), 5000);
+
+    async function loadClientConfig() {
+      try {
+        const config = await fetch('/api/client-config').then(r => r.json());
+        state.clientConfig = {
+          default_top_k: Number(config.default_top_k) || 20,
+          request_timeout_secs: Number(config.request_timeout_secs) || 60,
+          search_poll_interval_ms: Number(config.search_poll_interval_ms) || 300
+        };
+      } catch {
+        state.clientConfig = { default_top_k: 20, request_timeout_secs: 60, search_poll_interval_ms: 300 };
+      }
+    }
 
     async function loadDataset() {
       const res = await fetch('/api/dataset');
@@ -229,17 +243,23 @@
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
           query,
-          top_k: 20,
+          top_k: state.clientConfig.default_top_k,
           filters: collectFilters(),
           search_mode: currentSearchMode(),
           result_granularity: state.resultGranularity
         })
       }).then(r => r.json());
       const requestId = submitted.request_id;
+      const deadline = performance.now() + state.clientConfig.request_timeout_secs * 1000;
       for (;;) {
         const job = await fetch(`/api/jobs/${requestId}`).then(r => r.json());
         if (job.status === 'pending') {
-          await new Promise(resolve => setTimeout(resolve, 300));
+          if (performance.now() > deadline) {
+            button.disabled = false;
+            document.getElementById('status').textContent = 'サーバー応答がタイムアウトしました';
+            break;
+          }
+          await new Promise(resolve => setTimeout(resolve, state.clientConfig.search_poll_interval_ms));
           continue;
         }
         button.disabled = false;
@@ -531,7 +551,7 @@
     document.getElementById('query').addEventListener('keydown', event => { if (event.key === 'Enter') search(); });
     renderMethodChips();
     renderGranularityChips();
-    loadDataset();
+    loadClientConfig().then(loadDataset);
   </script>
 </body>
 </html>

@@ -67,6 +67,11 @@ cleanup_interval_secs = 60
 
 no_open = false
 keep_responses = false
+default_top_k = 20
+request_timeout_secs = 60
+browser_shutdown_secs = 30
+search_poll_interval_ms = 300
+client_port = 0
 ```
 
 Client distribution can therefore be:
@@ -77,7 +82,7 @@ SearchClient/
   shared-search.toml
 ```
 
-With that layout, a user can double-click `search-client.exe`; it starts the local client server, opens the browser UI, and exits after the browser heartbeat stops. For normal users, keep `no_open = false` and `keep_responses = false`.
+With that layout, a user can double-click `search-client.exe`; it starts the local client server, opens the browser UI, and exits after the browser heartbeat stops. For normal users, keep `no_open = false`, `keep_responses = false`, and `client_port = 0`. Port `0` means automatically choose an available localhost port.
 
 ## Dependency Checks
 
