@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use clap::Parser;
 use hybrid_shared_core::chunking::{ChunkMode, ChunkOptions};
-use hybrid_shared_core::config::{default_config_path, SharedSearchConfig};
+use hybrid_shared_core::config::{default_config_path_for, SharedSearchConfig};
 use hybrid_shared_core::embedding::EmbeddingConfig;
 use hybrid_shared_core::index::{build_index, BuildOptions};
 
@@ -111,7 +111,9 @@ fn main() -> anyhow::Result<()> {
 }
 
 fn resolve_args(args: Args) -> anyhow::Result<ResolvedArgs> {
-    let config_path = args.config.or_else(default_config_path);
+    let config_path = args
+        .config
+        .or_else(|| default_config_path_for("build-index.toml"));
     let config = match config_path {
         Some(path) if path.exists() => SharedSearchConfig::load_resolved(&path)?,
         _ => SharedSearchConfig::default().with_env_overrides(),

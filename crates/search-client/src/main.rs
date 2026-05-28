@@ -7,7 +7,7 @@ use axum::response::{Html, IntoResponse};
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use clap::Parser;
-use hybrid_shared_core::config::{default_config_path, SharedSearchConfig};
+use hybrid_shared_core::config::{default_config_path_for, SharedSearchConfig};
 use hybrid_shared_core::protocol::{
     DescribeDatasetRequest, FilterExpr, Request, Response, ResultGranularity, SearchMode,
     SearchRequest,
@@ -132,7 +132,9 @@ async fn main() -> anyhow::Result<()> {
 }
 
 fn resolve_args(args: Args) -> anyhow::Result<ResolvedArgs> {
-    let config_path = args.config.or_else(default_config_path);
+    let config_path = args
+        .config
+        .or_else(|| default_config_path_for("client.toml"));
     let config = match config_path {
         Some(path) if path.exists() => SharedSearchConfig::load_resolved(&path)?,
         _ => SharedSearchConfig::default().with_env_overrides(),

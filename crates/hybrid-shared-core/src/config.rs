@@ -112,7 +112,48 @@ fn env_path(name: &str) -> Option<PathBuf> {
         .map(PathBuf::from)
 }
 
-pub fn default_config_path() -> Option<PathBuf> {
+pub fn default_config_path_for(primary_file_name: &str) -> Option<PathBuf> {
     let exe = std::env::current_exe().ok()?;
-    exe.parent().map(|dir| dir.join("shared-search.toml"))
+    exe.parent()
+        .map(|dir| default_config_path_in_dir(dir, primary_file_name))
+}
+
+fn default_config_path_in_dir(dir: &Path, primary_file_name: &str) -> PathBuf {
+    let primary = dir.join(primary_file_name);
+    if primary.exists() {
+        primary
+    } else {
+        dir.join("shared-search.toml")
+    }
+}
+
+pub fn default_config_path() -> Option<PathBuf> {
+    default_config_path_for("shared-search.toml")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn prefers_role_specific_config_when_present() {
+        let dir = tempfile::tempdir().unwrap();
+        let role_config = dir.path().join("server.toml");
+        std::fs::write(&role_config, "").unwrap();
+
+        assert_eq!(
+            default_config_path_in_dir(dir.path(), "server.toml"),
+            role_config
+        );
+    }
+
+    #[test]
+    fn falls_back_to_shared_config() {
+        let dir = tempfile::tempdir().unwrap();
+
+        assert_eq!(
+            default_config_path_in_dir(dir.path(), "server.toml"),
+            dir.path().join("shared-search.toml")
+        );
+    }
 }

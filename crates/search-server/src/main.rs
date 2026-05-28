@@ -4,7 +4,7 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use clap::Parser;
-use hybrid_shared_core::config::{default_config_path, SharedSearchConfig};
+use hybrid_shared_core::config::{default_config_path_for, SharedSearchConfig};
 use hybrid_shared_core::embedding::EmbeddingConfigOverride;
 use hybrid_shared_core::index::load_current_index_with_embedding_override;
 use hybrid_shared_core::protocol::{Request, Response, ResponseError, ResponseOk};
@@ -64,7 +64,9 @@ fn main() -> anyhow::Result<()> {
 }
 
 fn resolve_args(args: Args) -> anyhow::Result<ResolvedArgs> {
-    let config_path = args.config.or_else(default_config_path);
+    let config_path = args
+        .config
+        .or_else(|| default_config_path_for("server.toml"));
     let config = match config_path {
         Some(path) if path.exists() => SharedSearchConfig::load_resolved(&path)?,
         _ => SharedSearchConfig::default().with_env_overrides(),

@@ -64,8 +64,9 @@ Recommended server-side distribution:
 ```text
 SearchServer/
   build-index.exe
+  build-index.toml
   search-server.exe
-  shared-search.toml
+  server.toml
   indexes/
 ```
 
@@ -74,10 +75,10 @@ Recommended client-side distribution:
 ```text
 SearchClient/
   search-client.exe
-  shared-search.toml
+  client.toml
 ```
 
-Put `shared-search.toml` next to each executable. For the server package, keep `indexes_root = "indexes"` if the `indexes/` directory is inside `SearchServer/`. For clients, use an absolute shared-folder path such as:
+Put the role-specific TOML next to each executable. For the server package, keep `indexes_root = "indexes"` if the `indexes/` directory is inside `SearchServer/`. For clients, use an absolute shared-folder path such as:
 
 ```toml
 shared_root = "\\\\fileserver\\shared-search"
@@ -89,21 +90,29 @@ With this layout, users can start the browser UI by double-clicking `search-clie
 
 ## Configuration
 
-`search-server`, `search-client`, and `build-index` can read a shared TOML config. CLI arguments override values from the config file.
+`search-server`, `search-client`, and `build-index` can read TOML config files. CLI arguments override values from the config file.
 
-By default, each executable looks for `shared-search.toml` next to the executable. You can also pass an explicit path:
+By default, each executable first looks for a role-specific TOML file next to the executable, then falls back to `shared-search.toml` for backward compatibility.
+
+| Executable | Preferred default config | Fallback |
+| --- | --- | --- |
+| `search-server.exe` | `server.toml` | `shared-search.toml` |
+| `search-client.exe` | `client.toml` | `shared-search.toml` |
+| `build-index.exe` | `build-index.toml` | `shared-search.toml` |
+
+You can also pass an explicit path:
 
 ```powershell
 cargo run -p search-client -- --config examples\shared-search.toml
 ```
 
-Relative paths in `shared-search.toml`, such as `shared_root = "shared_demo"` and `indexes_root = "indexes"`, are resolved relative to the config file location. This keeps double-click deployments stable even when the current working directory differs from the executable directory.
+Relative paths in config files, such as `shared_root = "shared_demo"` and `indexes_root = "indexes"`, are resolved relative to the config file location. This keeps double-click deployments stable even when the current working directory differs from the executable directory.
 
 `dataset_id` selects one dataset folder under `indexes_root`; it is not a path. `indexes_root` can point anywhere. For example, if `search-server.exe` is in `target/release/` but you want to use the project-level `indexes/` directory, set `indexes_root = "..\\..\\indexes"` in the TOML next to the exe, or use an absolute path. New `current.json` files store the active index version as a path relative to `current.json`, so moving the whole `indexes/` tree is supported.
 
-For vector search, model files can also be configured in `shared-search.toml`. This lets you keep the index on a shared folder while loading `model.onnx`, `tokenizer.json`, and `onnxruntime.dll` from a fast local disk on the server PC. Values in TOML override the model file paths stored in `embedding_config.json`; other embedding settings remain in the index unless explicitly set in TOML.
+For vector search, model files can also be configured in `server.toml` or `build-index.toml`. This lets you keep the index on a shared folder while loading `model.onnx`, `tokenizer.json`, and `onnxruntime.dll` from a fast local disk on the server PC. Values in TOML override the model file paths stored in `embedding_config.json`; other embedding settings remain in the index unless explicitly set in TOML.
 
-Model file paths can also be overridden per PC with environment variables. This is useful when one shared config is distributed but each server PC keeps the model files on a different local disk. Precedence is CLI argument, then environment variable, then `shared-search.toml`, then the index's `embedding_config.json`.
+Model file paths can also be overridden per PC with environment variables. This is useful when one shared config is distributed but each server PC keeps the model files on a different local disk. Precedence is CLI argument, then environment variable, then TOML config, then the index's `embedding_config.json`.
 
 ```powershell
 $env:SHARED_SEARCH_EMBEDDING_MODEL = "D:\shared-search-models\ruri-v3-onnx\model.onnx"
@@ -111,7 +120,7 @@ $env:SHARED_SEARCH_TOKENIZER = "D:\shared-search-models\ruri-v3-onnx\tokenizer.j
 $env:SHARED_SEARCH_ORT_DLL = "D:\shared-search-models\ruri-v3-onnx\onnxruntime.dll"
 ```
 
-Example:
+Server config example:
 
 ```toml
 shared_root = "\\\\server\\share\\search"
@@ -127,15 +136,17 @@ max_input_tokens = 512
 query_prefix = "検索クエリ: "
 document_prefix = "検索文書: "
 
-# Optional build-index chunking defaults.
-chunk_mode = "smart"
-chunk_size = 1200
-chunk_overlap = 200
-
 poll_seconds = 2
 done_ttl_secs = 600
 failed_ttl_secs = 86400
 cleanup_interval_secs = 60
+```
+
+Client config example:
+
+```toml
+shared_root = "\\\\server\\share\\search"
+dataset_id = "my_project"
 
 no_open = false
 keep_responses = false
@@ -146,12 +157,31 @@ search_poll_interval_ms = 300
 client_port = 0
 ```
 
+Build-index config example:
+
+```toml
+indexes_root = "indexes"
+dataset_id = "my_project"
+
+embedding_model = "D:\\shared-search-models\\ruri-v3-onnx\\model.onnx"
+tokenizer = "D:\\shared-search-models\\ruri-v3-onnx\\tokenizer.json"
+ort_dll = "D:\\shared-search-models\\ruri-v3-onnx\\onnxruntime.dll"
+embedding_dim = 768
+max_input_tokens = 512
+query_prefix = "検索クエリ: "
+document_prefix = "検索文書: "
+
+chunk_mode = "smart"
+chunk_size = 1200
+chunk_overlap = 200
+```
+
 Client distribution can therefore be:
 
 ```text
 SearchClient/
   search-client.exe
-  shared-search.toml
+  client.toml
 ```
 
 With that layout, a user can double-click `search-client.exe`; it starts the local client server, opens the browser UI, and exits after the browser heartbeat stops. For normal users, keep `no_open = false`, `keep_responses = false`, and `client_port = 0`. Port `0` means automatically choose an available localhost port.

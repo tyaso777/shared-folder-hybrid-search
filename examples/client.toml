@@ -1,0 +1,12 @@
+# Client-side config for search-client.exe.
+
+shared_root = "shared_demo"
+dataset_id = "contracts"
+
+no_open = false
+keep_responses = false
+default_top_k = 20
+request_timeout_secs = 60
+browser_shutdown_secs = 30
+search_poll_interval_ms = 300
+client_port = 0

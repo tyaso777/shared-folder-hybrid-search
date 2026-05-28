@@ -1,0 +1,21 @@
+# Build-side config for build-index.exe.
+
+indexes_root = "indexes"
+dataset_id = "contracts"
+
+# Optional vector model and chunking settings.
+# These can be overridden per PC with SHARED_SEARCH_EMBEDDING_MODEL,
+# SHARED_SEARCH_TOKENIZER, and SHARED_SEARCH_ORT_DLL environment variables.
+# embedding_model = "models/ruri-v3-onnx/model.onnx"
+# tokenizer = "models/ruri-v3-onnx/tokenizer.json"
+# ort_dll = "models/ruri-v3-onnx/onnxruntime.dll"
+# embedding_dim = 768
+# max_input_tokens = 512
+# embedding_model_id = "ruri-v3-onnx"
+# query_prefix = "検索クエリ: "
+# document_prefix = "検索文書: "
+# preload_model_to_memory = false
+
+chunk_mode = "smart"
+chunk_size = 1200
+chunk_overlap = 200

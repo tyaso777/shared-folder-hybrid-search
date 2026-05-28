@@ -1,15 +1,12 @@
-# Backward-compatible combined config.
-# Prefer role-specific examples/server.toml, examples/client.toml, and
-# examples/build-index.toml for real deployments.
+# Server-side config for search-server.exe.
 
 shared_root = "shared_demo"
 indexes_root = "indexes"
 dataset_id = "contracts"
 
-# Optional vector/embedding settings. Relative paths are resolved from this TOML file.
+# Optional vector model override.
 # These can be overridden per PC with SHARED_SEARCH_EMBEDDING_MODEL,
 # SHARED_SEARCH_TOKENIZER, and SHARED_SEARCH_ORT_DLL environment variables.
-# Use these when model files are stored outside the index, for example on a server-local SSD.
 # embedding_model = "models/ruri-v3-onnx/model.onnx"
 # tokenizer = "models/ruri-v3-onnx/tokenizer.json"
 # ort_dll = "models/ruri-v3-onnx/onnxruntime.dll"
@@ -20,22 +17,7 @@ dataset_id = "contracts"
 # document_prefix = "検索文書: "
 # preload_model_to_memory = false
 
-# Optional build-index chunking defaults.
-# chunk_mode = "smart"
-# chunk_size = 1200
-# chunk_overlap = 200
-
-# Server settings
 poll_seconds = 2
 done_ttl_secs = 600
 failed_ttl_secs = 86400
 cleanup_interval_secs = 60
-
-# Client settings
-no_open = false
-keep_responses = false
-default_top_k = 20
-request_timeout_secs = 60
-browser_shutdown_secs = 30
-search_poll_interval_ms = 300
-client_port = 0
