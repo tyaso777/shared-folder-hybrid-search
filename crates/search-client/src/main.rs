@@ -35,6 +35,7 @@ struct Args {
     dataset: Option<String>,
     #[arg(long)]
     no_open: Option<bool>,
+    // Deprecated: response cleanup is owned by search-server.
     #[arg(long)]
     keep_responses: Option<bool>,
 }
@@ -44,7 +45,6 @@ struct ResolvedArgs {
     shared_root: PathBuf,
     dataset: String,
     no_open: bool,
-    keep_responses: bool,
     default_top_k: usize,
     request_timeout_secs: u64,
     browser_shutdown_secs: u64,
@@ -58,7 +58,6 @@ struct AppState {
     client_id: String,
     dataset_id: String,
     last_seen: std::sync::Arc<Mutex<Instant>>,
-    keep_responses: bool,
     default_top_k: usize,
     request_timeout: Duration,
     browser_shutdown: Duration,
@@ -99,7 +98,6 @@ async fn main() -> anyhow::Result<()> {
         client_id: format!("client-{}", Uuid::new_v4()),
         dataset_id: args.dataset,
         last_seen: std::sync::Arc::new(Mutex::new(Instant::now())),
-        keep_responses: args.keep_responses,
         default_top_k: args.default_top_k,
         request_timeout: Duration::from_secs(args.request_timeout_secs),
         browser_shutdown: Duration::from_secs(args.browser_shutdown_secs),
@@ -153,10 +151,6 @@ fn resolve_args(args: Args) -> anyhow::Result<ResolvedArgs> {
         shared_root,
         dataset,
         no_open: args.no_open.or(config.no_open).unwrap_or(false),
-        keep_responses: args
-            .keep_responses
-            .or(config.keep_responses)
-            .unwrap_or(false),
         default_top_k: config.default_top_k.unwrap_or(20),
         request_timeout_secs: config.request_timeout_secs.unwrap_or(60),
         browser_shutdown_secs: config.browser_shutdown_secs.unwrap_or(30),
@@ -235,12 +229,7 @@ async fn get_job(
         return Json(serde_json::json!({ "status": "pending" }));
     }
     match read_json::<Response>(&path) {
-        Ok(response) => {
-            if !state.keep_responses {
-                let _ = std::fs::remove_file(&path);
-            }
-            Json(serde_json::to_value(response).unwrap())
-        }
+        Ok(response) => Json(serde_json::to_value(response).unwrap()),
         Err(err) => Json(serde_json::json!({ "status": "error", "message": err.to_string() })),
     }
 }
@@ -259,11 +248,7 @@ async fn roundtrip(
     let started = Instant::now();
     loop {
         if response.exists() {
-            let value = read_json(&response)?;
-            if !state.keep_responses {
-                let _ = std::fs::remove_file(&response);
-            }
-            return Ok(value);
+            return read_json(&response);
         }
         if started.elapsed() > timeout {
             anyhow::bail!("timeout waiting for server response");
