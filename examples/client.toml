@@ -6,6 +6,6 @@ dataset_id = "contracts"
 no_open = false
 default_top_k = 20
 request_timeout_secs = 60
-browser_shutdown_secs = 30
+browser_shutdown_secs = 300
 search_poll_interval_ms = 300
 client_port = 0

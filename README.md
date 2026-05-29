@@ -151,7 +151,7 @@ dataset_id = "my_project"
 no_open = false
 default_top_k = 20
 request_timeout_secs = 60
-browser_shutdown_secs = 30
+browser_shutdown_secs = 300
 search_poll_interval_ms = 300
 client_port = 0
 ```
@@ -183,7 +183,7 @@ SearchClient/
   client.toml
 ```
 
-With that layout, a user can double-click `search-client.exe`; it starts the local client server, opens the browser UI, and exits after the browser heartbeat stops. For normal users, keep `no_open = false` and `client_port = 0`. Port `0` means automatically choose an available localhost port.
+With that layout, a user can double-click `search-client.exe`; it starts the local client server, opens the browser UI, and exits after the browser heartbeat stops. For normal users, keep `no_open = false` and `client_port = 0`. Port `0` means automatically choose an available localhost port. `browser_shutdown_secs` controls how long the local client waits after browser heartbeat stops; the default is 300 seconds to tolerate temporary tab throttling or brief PC sleep.
 
 ## Dependency Checks
 

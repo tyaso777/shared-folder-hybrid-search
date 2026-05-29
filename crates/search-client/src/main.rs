@@ -153,7 +153,7 @@ fn resolve_args(args: Args) -> anyhow::Result<ResolvedArgs> {
         no_open: args.no_open.or(config.no_open).unwrap_or(false),
         default_top_k: config.default_top_k.unwrap_or(20),
         request_timeout_secs: config.request_timeout_secs.unwrap_or(60),
-        browser_shutdown_secs: config.browser_shutdown_secs.unwrap_or(30),
+        browser_shutdown_secs: config.browser_shutdown_secs.unwrap_or(300),
         search_poll_interval_ms: config.search_poll_interval_ms.unwrap_or(300),
         client_port: config.client_port.unwrap_or(0),
     })
