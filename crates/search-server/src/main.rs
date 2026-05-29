@@ -144,14 +144,13 @@ fn cleanup_old_files(
     done_ttl_secs: u64,
     failed_ttl_secs: u64,
 ) -> anyhow::Result<()> {
-    cleanup_dir(
-        &shared_root.join("requests").join("done"),
-        Duration::from_secs(done_ttl_secs),
-    )?;
+    let done_ttl = Duration::from_secs(done_ttl_secs);
+    cleanup_dir(&shared_root.join("requests").join("done"), done_ttl)?;
     cleanup_dir(
         &shared_root.join("requests").join("failed"),
         Duration::from_secs(failed_ttl_secs),
     )?;
+    cleanup_response_tree(&shared_root.join("responses"), done_ttl)?;
     Ok(())
 }
 
@@ -179,6 +178,65 @@ fn cleanup_dir(dir: &Path, ttl: Duration) -> anyhow::Result<()> {
         }
     }
     Ok(())
+}
+
+fn cleanup_response_tree(dir: &Path, ttl: Duration) -> anyhow::Result<()> {
+    if !dir.exists() {
+        return Ok(());
+    }
+    cleanup_tree_files(dir, ttl)?;
+    cleanup_empty_child_dirs(dir)?;
+    Ok(())
+}
+
+fn cleanup_tree_files(dir: &Path, ttl: Duration) -> anyhow::Result<()> {
+    if ttl.is_zero() {
+        return Ok(());
+    }
+    let now = std::time::SystemTime::now();
+    for entry in fs::read_dir(dir)? {
+        let path = entry?.path();
+        if path.is_dir() {
+            cleanup_tree_files(&path, ttl)?;
+            continue;
+        }
+        if !path.is_file() {
+            continue;
+        }
+        let Ok(metadata) = fs::metadata(&path) else {
+            continue;
+        };
+        let Ok(modified) = metadata.modified() else {
+            continue;
+        };
+        let Ok(age) = now.duration_since(modified) else {
+            continue;
+        };
+        if age >= ttl {
+            let _ = fs::remove_file(path);
+        }
+    }
+    Ok(())
+}
+
+fn cleanup_empty_child_dirs(dir: &Path) -> anyhow::Result<bool> {
+    if !dir.exists() {
+        return Ok(true);
+    }
+    let mut empty = true;
+    for entry in fs::read_dir(dir)? {
+        let path = entry?.path();
+        if path.is_dir() {
+            if cleanup_empty_child_dirs(&path)? {
+                let _ = fs::remove_dir(&path);
+            } else {
+                empty = false;
+            }
+        } else {
+            empty = false;
+        }
+    }
+    Ok(empty)
 }
 
 fn handle_request(
@@ -225,4 +283,27 @@ fn handle_request(
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn cleanup_response_tree_removes_files_past_ttl_and_empty_dirs() {
+        let dir = tempfile::tempdir().unwrap();
+        let responses = dir.path().join("responses");
+        let old_client = responses.join("old-client");
+        let empty_client = responses.join("empty-client");
+        fs::create_dir_all(&old_client).unwrap();
+        fs::create_dir_all(&empty_client).unwrap();
+        fs::write(old_client.join("old.response.json"), "{}").unwrap();
+
+        cleanup_response_tree(&responses, Duration::from_secs(0)).unwrap();
+        assert!(old_client.join("old.response.json").exists());
+        assert!(!empty_client.exists());
+
+        cleanup_response_tree(&responses, Duration::from_nanos(1)).unwrap();
+        assert!(!old_client.exists());
+    }
 }

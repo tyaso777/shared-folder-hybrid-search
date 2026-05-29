@@ -3010,6 +3010,7 @@ dependencies = [
  "hybrid-shared-core",
  "notify",
  "serde_json",
+ "tempfile",
  "tokio",
 ]
 

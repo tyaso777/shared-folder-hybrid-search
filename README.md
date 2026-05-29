@@ -411,7 +411,7 @@ cargo run -p search-client -- `
   --dataset jawikibooks_vector_50
 ```
 
-The browser client deletes response files after reading them. Use `--keep-responses` when debugging shared-folder traffic. The server deletes processed request files from `requests/done` after 10 minutes and `requests/failed` after 24 hours by default.
+The browser client deletes response files after reading them. Use `--keep-responses` when debugging shared-folder traffic. The server deletes processed request files from `requests/done` after 10 minutes and `requests/failed` after 24 hours by default. It also deletes old files under `responses/` using `done_ttl_secs` and removes empty response subfolders.
 
 ## Demo: BM25 + ONNX Vector
 
